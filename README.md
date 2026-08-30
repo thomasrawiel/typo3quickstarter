@@ -33,6 +33,9 @@ Support the development and keep the updates coming. Even 1€ helps :)
 </div>
 
 
+> [!TIP]
+> **New in 0.5.0:** you can install typo3quickstarter system-wide now and run it from any directory — the instance is created wherever you happen to be. Keep it current with `typo3quickstarter update`. See [Installation](#installation).
+
 ## Prerequisites
 
 - [Docker](https://www.docker.com/)
