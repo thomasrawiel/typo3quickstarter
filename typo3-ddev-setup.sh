@@ -11,6 +11,10 @@ SCRIPT_VERSION="0.5.0"
 IS_TTY=0
 [[ -t 1 ]] && IS_TTY=1
 
+# Empty defaults so the argument loop below - which runs before the real values
+# are known - can interpolate them without tripping over `set -u`.
+C_RESET="" C_BOLD="" C_CYAN="" C_GREEN="" C_YELLOW="" C_RED=""
+
 # --- Defaults ---------------------------------------------------------------
 T3_VERSION=""
 PROJECT_NAME=""

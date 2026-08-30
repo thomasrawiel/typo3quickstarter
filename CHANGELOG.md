@@ -7,6 +7,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this p
 
 ## [0.5.0] - 2026-08-30
 
+### Fixed
+
+- An unknown option or a stray argument aborted with `C_RED: unbound variable` instead of the intended error message and usage output: the colors are only defined after the argument loop that uses them, which `set -u` rejects. They now start out empty and are filled in once `--verbose` is known.
+
 ### Changed
 
 - README restructured: status badges (supported TYPO3 versions, Bash, Docker/DDEV, license, Ko-fi), a support section, and `shell` code fences throughout. No change to the script itself.
