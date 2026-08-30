@@ -42,41 +42,54 @@ The script checks for both and bails out early with a clear error if either is m
 
 ## Installation
 
-Grab the latest release — it's a single file with no other dependencies beyond `bash`, `docker`, and `ddev`:
-
 ```shell
-curl -LO https://github.com/pagea-dev/typo3quickstarter/releases/latest/download/typo3-ddev-setup.sh && chmod +x typo3-ddev-setup.sh
+curl -fsSL https://raw.githubusercontent.com/pagea-dev/typo3quickstarter/main/install.sh | bash
 ```
 
-Or clone the repo instead if you also want `docs/`, `CHANGELOG.md`, etc.:
+That installs `typo3quickstarter` — plus `t3quickstarter` as a short alias — into `~/.local/bin`. From then on you create instances wherever you happen to be:
+
+```shell
+cd ~/projects/customer-x
+typo3quickstarter --release=13
+```
+
+Updating is the same command again; removing it is `typo3quickstarter-uninstall`. See [docs/installation.md](docs/installation.md) for the install location and everything around it.
+
+<details>
+<summary><b>Other ways to install</b> — from a checkout, or the single file with no install at all</summary>
+
+<br>
+
+**From a checkout**, which also gets you `docs/`, `CHANGELOG.md` and everything else:
 
 ```shell
 git clone https://github.com/pagea-dev/typo3quickstarter.git
 cd typo3quickstarter
-chmod +x typo3-ddev-setup.sh
-```
-
-Or install it as a command you can run from any directory — `typo3quickstarter`, or `t3quickstarter` for short — with the instance created in whatever directory you're standing in:
-
-```shell
 ./install.sh
 ```
 
-See [docs/installation.md](docs/installation.md) for the install location, updating, and uninstalling.
+**Without installing anything**, as a single file you run from where it lies — no other dependencies beyond `bash`, `docker` and `ddev`:
+
+```shell
+curl -LO https://github.com/pagea-dev/typo3quickstarter/releases/latest/download/typo3-ddev-setup.sh && chmod +x typo3-ddev-setup.sh
+./typo3-ddev-setup.sh --release=13
+```
+
+Every flag works the same either way. Run this way, the script prints `./typo3-ddev-setup.sh` back at you instead of `typo3quickstarter` wherever it suggests a follow-up command.
+
+</details>
 
 ## Usage
 
 ```shell
-./typo3-ddev-setup.sh --release=13
+typo3quickstarter --release=13
 ```
 
 No `--release`? It defaults to the newest supported major version:
 
 ```shell
-./typo3-ddev-setup.sh
+typo3quickstarter
 ```
-
-If you installed it as a command (see above), use `typo3quickstarter` or `t3quickstarter` instead of `./typo3-ddev-setup.sh` — every flag below is identical.
 
 That's it. The script will:
 
@@ -96,7 +109,7 @@ Backend:     https://typo3-v13-a1b2.ddev.site/typo3
 Admin:       admin
 Password:    q7-Xf#2vRt%Ls9BkPz4m
 Credentials: /home/you/projects/typo3-v13-a1b2/typo3-credentials.txt
-To clean up this instance: ./typo3-ddev-setup.sh --c a1b2
+To clean up this instance: typo3quickstarter --c a1b2
 ```
 
 > The very first time DDEV adds a new `*.ddev.site` hostname to your system, it needs `sudo` to update `/etc/hosts` — you'll get a normal password prompt for that. It only happens once per hostname.
@@ -125,19 +138,19 @@ To clean up this instance: ./typo3-ddev-setup.sh --c a1b2
 Latest TYPO3 14 with a couple of extensions and a personal admin login, in one command:
 
 ```shell
-./typo3-ddev-setup.sh --release=14 --require=b13/container georgringer/news --admin-user=lukas --admin-password='Correct-Horse-1' --admin-email=lukas@example.com
+typo3quickstarter --release=14 --require=b13/container georgringer/news --admin-user=lukas --admin-password='Correct-Horse-1' --admin-email=lukas@example.com
 ```
 
 An exact TYPO3 12 patch release, plus a specific version of an extension (`--require` takes any Composer constraint, same as `composer require vendor/package:constraint`):
 
 ```shell
-./typo3-ddev-setup.sh --release=12.4.20 --require=georgringer/news:^11.0
+typo3quickstarter --release=12.4.20 --require=georgringer/news:^11.0
 ```
 
 Kickstart a brand-new extension against the newest TYPO3, then put just that extension under git once it's created:
 
 ```shell
-./typo3-ddev-setup.sh --with-git
+typo3quickstarter --with-git
 ```
 
 Pick option 2 when asked, follow the kickstarter's prompts, and you'll have a working TYPO3 instance plus a freshly versioned extension - see [docs/with-git.md](docs/with-git.md).
