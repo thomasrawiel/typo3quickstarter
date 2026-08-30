@@ -334,7 +334,7 @@ run_list() {
   done < <(find_instances "$scan_dir")
 
   if [[ ${#NAMES[@]} -eq 0 ]]; then
-    echo "${C_YELLOW}No typo3-ddev-setup instances found in '${scan_dir}'.${C_RESET}"
+    echo "${C_YELLOW}No typo3quickstarter instances found in '${scan_dir}'.${C_RESET}"
     exit 0
   fi
 
@@ -480,7 +480,7 @@ run_cleanup() {
     if [[ ${#CLEANUP_TARGETS[@]} -gt 0 ]]; then
       echo "${C_YELLOW}No instance matching ${CLEANUP_TARGETS[*]} found in '${scan_dir}'.${C_RESET}"
     else
-      echo "${C_YELLOW}No typo3-ddev-setup instances found in '${scan_dir}'.${C_RESET}"
+      echo "${C_YELLOW}No typo3quickstarter instances found in '${scan_dir}'.${C_RESET}"
     fi
     exit 0
   fi

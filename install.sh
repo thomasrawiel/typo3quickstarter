@@ -103,7 +103,7 @@ resolve_source() {
     echo "${SOURCE_DIR}/${name}"
     return 0
   fi
-  command -v curl >/dev/null 2>&1 || { echo "${C_RED}Error: curl is needed to download ${name}, and it is not in PATH.${C_RESET}" >&2; return 1; }
+  command -v curl >/dev/null 2>&1 || { echo "${C_RED}Error: curl is needed to download the release, and it is not in PATH.${C_RESET}" >&2; return 1; }
   tmp="$(mktemp)"
   TMP_FILES+=("$tmp")
   curl -fsSL "$url" -o "$tmp" || { echo "${C_RED}Error: download from ${url} failed.${C_RESET}" >&2; return 1; }
@@ -114,7 +114,7 @@ if [[ -f "${SOURCE_DIR}/${SCRIPT_NAME}" ]]; then
   SOURCE_LABEL="${SOURCE_DIR} (local checkout)"
 else
   SOURCE_LABEL="latest release on GitHub"
-  echo "${C_CYAN}==> Downloading ${SCRIPT_NAME} and ${UNINSTALL_NAME}${C_RESET}"
+  echo "${C_CYAN}==> Downloading the latest release${C_RESET}"
 fi
 
 SOURCE="$(resolve_source "$SCRIPT_NAME" "$RELEASE_URL")"
