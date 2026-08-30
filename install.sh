@@ -75,6 +75,18 @@ is_ours() {
   [[ -f "$1" ]] && grep -qE '^SCRIPT_VERSION=|^# typo3quickstarter-managed' "$1"
 }
 
+# Reads SCRIPT_VERSION out of a copy of the setup script. Deliberately plain
+# grep/cut rather than sourcing the file - that would run it.
+read_version() {
+  local v=""
+  [[ -f "$1" ]] && v="$(grep -m1 '^SCRIPT_VERSION=' "$1" | cut -d'"' -f2)"
+  echo "${v:-unknown}"
+}
+
+echo "${C_BOLD}${C_CYAN}typo3quickstarter${C_RESET} ${C_YELLOW}installer${C_RESET}"
+echo "${C_CYAN}https://github.com/${REPO}${C_RESET} · ${C_CYAN}https://pagea.dev/${C_RESET}"
+echo
+
 # Prefer the script sitting next to this installer (git checkout), fall back to
 # the latest release asset (curl | bash, where there is no checkout at all).
 # Piped through `curl ... | bash` there is no script file at all, and BASH_SOURCE
@@ -99,13 +111,30 @@ resolve_source() {
 }
 
 if [[ -f "${SOURCE_DIR}/${SCRIPT_NAME}" ]]; then
-  echo "${C_CYAN}==> Installing from ${SOURCE_DIR}${C_RESET}"
+  SOURCE_LABEL="${SOURCE_DIR} (local checkout)"
 else
-  echo "${C_CYAN}==> Downloading the latest release${C_RESET}"
+  SOURCE_LABEL="latest release on GitHub"
+  echo "${C_CYAN}==> Downloading ${SCRIPT_NAME} and ${UNINSTALL_NAME}${C_RESET}"
 fi
 
 SOURCE="$(resolve_source "$SCRIPT_NAME" "$RELEASE_URL")"
 UNINSTALL_SOURCE="$(resolve_source "$UNINSTALL_NAME" "$UNINSTALL_URL")"
+
+NEW_VERSION="$(read_version "$SOURCE")"
+# An existing install tells us whether this is a fresh one, an update or a
+# reinstall - worth saying out loud, since "install.sh" is also the update path.
+INSTALLED_VERSION=""
+is_ours "$TARGET" && INSTALLED_VERSION="$(read_version "$TARGET")"
+
+printf '%sSource:%s  %s\n' "$C_BOLD" "$C_RESET" "$SOURCE_LABEL"
+printf '%sVersion:%s %s\n' "$C_BOLD" "$C_RESET" "$NEW_VERSION"
+printf '%sTarget:%s  %s\n' "$C_BOLD" "$C_RESET" "$PREFIX"
+if [[ -n "$INSTALLED_VERSION" ]] && [[ "$INSTALLED_VERSION" != "$NEW_VERSION" ]]; then
+  printf '%sUpdate:%s  %s -> %s\n' "$C_BOLD" "$C_RESET" "$INSTALLED_VERSION" "$NEW_VERSION"
+elif [[ -n "$INSTALLED_VERSION" ]]; then
+  printf '%sUpdate:%s  reinstalling %s\n' "$C_BOLD" "$C_RESET" "$INSTALLED_VERSION"
+fi
+echo
 
 # Bail out before writing anything if the target name is taken by something else.
 if [[ -e "$TARGET" ]] && ! is_ours "$TARGET"; then
@@ -121,19 +150,32 @@ fi
 
 mkdir -p "$PREFIX"
 install -m 755 "$SOURCE" "$TARGET"
-echo "${C_GREEN}Installed ${TARGET}${C_RESET}"
 install -m 755 "$UNINSTALL_SOURCE" "$UNINSTALLER_TARGET"
-echo "${C_GREEN}Installed ${UNINSTALLER_TARGET}${C_RESET}"
 
+# What landed where, so it's obvious what a later uninstall will take away again.
+echo "${C_GREEN}${C_BOLD}Installed into ${PREFIX}:${C_RESET}"
+printf '  %s%-29s%s %s\n' "$C_GREEN" "$COMMAND_NAME" "$C_RESET" "the TYPO3 instance creator itself"
 for name in "${COMMAND_ALIASES[@]}"; do
   link="${PREFIX}/${name}"
   if [[ -e "$link" ]] && [[ ! -L "$link" ]] && ! is_ours "$link"; then
-    echo "${C_YELLOW}Skipping alias ${name}: ${link} exists and isn't ours.${C_RESET}"
+    printf '  %s%-29s%s %s\n' "$C_YELLOW" "$name" "$C_RESET" "skipped - a different file of that name is already there"
     continue
   fi
   ln -sf "$TARGET" "$link"
-  echo "${C_GREEN}Installed ${link} -> ${COMMAND_NAME}${C_RESET}"
+  printf '  %s%-29s%s %s\n' "$C_GREEN" "$name" "$C_RESET" "short alias, symlink to ${COMMAND_NAME}"
 done
+printf '  %s%-29s%s %s\n' "$C_GREEN" "$UNINSTALLER_NAME" "$C_RESET" "removes all of the above again"
+
+# Informational only - you can install this before ever installing DDEV, you just
+# can't create an instance yet. Better to say so now than to fail on first use.
+MISSING=""
+command -v docker >/dev/null 2>&1 || MISSING="docker"
+command -v ddev >/dev/null 2>&1 || MISSING="${MISSING:+${MISSING} and }ddev"
+if [[ -n "$MISSING" ]]; then
+  echo
+  echo "${C_YELLOW}Note: ${MISSING} not found in PATH. You'll need it before creating an instance -${C_RESET}"
+  echo "${C_YELLOW}see https://ddev.com/get-started/${C_RESET}"
+fi
 
 echo
 case ":${PATH}:" in
@@ -147,8 +189,9 @@ case ":${PATH}:" in
     echo "${C_BOLD}After that:${C_RESET}"
     ;;
 esac
-echo "    ${COMMAND_NAME} --release=13"
-echo "    ${COMMAND_ALIASES[0]} --release=13 --xdebug"
+echo "    ${COMMAND_NAME} --release=13            # newest TYPO3 13, in the current directory"
+echo "    ${COMMAND_ALIASES[0]} --release=12.4.20 --xdebug"
+echo "    ${COMMAND_NAME} --help                  # every flag, with the docs it belongs to"
 echo
 UNINSTALL_HINT="${UNINSTALLER_NAME}"
 # Only on PATH if PREFIX is - otherwise print something that actually runs.

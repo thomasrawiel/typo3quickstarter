@@ -55,6 +55,10 @@ done
 
 PREFIX="${PREFIX%/}"
 
+echo "${C_BOLD}${C_CYAN}typo3quickstarter${C_RESET} ${C_YELLOW}uninstaller${C_RESET}"
+echo "${C_BOLD}Prefix:${C_RESET} ${PREFIX}"
+echo
+
 # Only ever remove files that are ours - a same-named command from somewhere else
 # stays untouched.
 is_ours() {
