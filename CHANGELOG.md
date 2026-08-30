@@ -7,6 +7,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this p
 
 ## [0.5.0] - 2026-08-30
 
+### Added
+
+- `--xdebug` enables Xdebug for PHP step debugging right at `ddev config` time, so it's live from the first `ddev start` instead of needing a `ddev xdebug on` afterwards. Off by default, as in DDEV itself, since Xdebug costs performance on every request - see [docs/xdebug.md](docs/xdebug.md). Thanks to [@thomasrawiel](https://github.com/thomasrawiel) for the report ([#16](https://github.com/pagea-dev/typo3quickstarter/issues/16)).
+- `--env=KEY=VALUE` sets arbitrary environment variables in the web container, in place before the install even starts. Same repeat/space-separated syntax as `--require`, and a variable the script sets itself (`TYPO3_CONTEXT`) is overridden rather than duplicated when you pass your own - see [docs/environment-variables.md](docs/environment-variables.md) ([#16](https://github.com/pagea-dev/typo3quickstarter/issues/16)).
+
 ### Fixed
 
 - An unknown option or a stray argument aborted with `C_RED: unbound variable` instead of the intended error message and usage output: the colors are only defined after the argument loop that uses them, which `set -u` rejects. They now start out empty and are filled in once `--verbose` is known.

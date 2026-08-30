@@ -13,7 +13,7 @@ Both are pulled in as part of the same install as everything else, so they're pi
 
 ## `TYPO3_CONTEXT=Development`
 
-Set via `ddev config --web-environment-add`, so it's available to the web container from the very first `ddev start` - before TYPO3 is even installed. Switches TYPO3 out of the default `Production` application context, which relaxes production-safe defaults (more verbose error output, some caches skipped) in favor of visibility into what's actually happening.
+Set via `ddev config --web-environment-add`, so it's available to the web container from the very first `ddev start` - before TYPO3 is even installed. Override it like any other variable with `--env=TYPO3_CONTEXT=...` (see [environment-variables.md](environment-variables.md)). Switches TYPO3 out of the default `Production` application context, which relaxes production-safe defaults (more verbose error output, some caches skipped) in favor of visibility into what's actually happening.
 
 ```bash
 ddev exec ./vendor/bin/typo3 --version
@@ -36,3 +36,5 @@ Written right after the TYPO3 install, alongside the `trustedHostsPattern` fix (
 The empty `debugExceptionHandler` is the one worth calling out: it's a deliberate downgrade from TYPO3's already-verbose Development-context error page to PHP's own raw output, for cases where you need to see exactly what PHP itself is doing - e.g. when TYPO3's own exception handler is what's misbehaving, or you just want the unfiltered stack trace.
 
 These are written by reading `settings.php` as PHP and re-exporting the merged array (not a plain text search/replace), so they land correctly whether or not `BE`/`FE` already exist as top-level keys.
+
+What you *don't* get by default is Xdebug - it ships with DDEV but stays off unless you ask for it, since it costs performance on every request. See [xdebug.md](xdebug.md).

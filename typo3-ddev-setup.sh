@@ -26,9 +26,11 @@ CLEANUP=0
 LIST=0
 VERBOSE=0
 WITH_GIT=0
+XDEBUG=0
 COMPOSER_REQUIREMENTS=()
 EXTENSION_PATHS=()
 CLEANUP_TARGETS=()
+ENV_VARS=()
 CURRENT_OPTION=""
 
 usage() {
@@ -54,6 +56,14 @@ Options:
   --extension=PATH        Mount a local extension directory and require it at :@dev for
                           development (see docs/composer-packages.md). Same multi-value syntax
                           as --require.
+  --env=KEY=VALUE         Set an environment variable in the web container. Same multi-value
+                          syntax as --require. Overrides the defaults the script sets itself
+                          (e.g. --env=TYPO3_CONTEXT=Development/DDEV). Values must not contain
+                          a comma - see docs/environment-variables.md.
+  --xdebug                Enable Xdebug from the first start, for PHP step debugging in your
+                          IDE (off by default, as in DDEV itself, since it slows down every
+                          request). Toggle it later with 'ddev xdebug on|off' inside the
+                          project directory - see docs/xdebug.md.
   --c, --clear, --cleanup Interactively pick previously created instances and remove them completely
                           (Docker containers/volumes, DDEV project listing, hosts entry, project directory).
                           Optionally followed by one or more name/ID substrings to only consider
@@ -110,6 +120,14 @@ for arg in "$@"; do
       CURRENT_OPTION="extension"
       EXTENSION_PATHS+=("${arg#*=}")
       ;;
+    --env=*)
+      CURRENT_OPTION="env"
+      ENV_VARS+=("${arg#*=}")
+      ;;
+    --xdebug)
+      CURRENT_OPTION=""
+      XDEBUG=1
+      ;;
     --cleanup|--clear|--c)
       CURRENT_OPTION="cleanup_target"
       CLEANUP=1
@@ -146,6 +164,9 @@ for arg in "$@"; do
           ;;
         extension)
           EXTENSION_PATHS+=("$arg")
+          ;;
+        env)
+          ENV_VARS+=("$arg")
           ;;
         cleanup_target)
           CLEANUP_TARGETS+=("$arg")
@@ -185,6 +206,25 @@ for i in "${!EXTENSION_PATHS[@]}"; do
 
   if [[ ! -f "${EXTENSION_PATHS[$i]}/composer.json" ]]; then
     echo "${C_RED}Extension does not contain a composer.json: ${EXTENSION_PATHS[$i]}${C_RESET}" >&2
+    exit 1
+  fi
+done
+
+# --- check --env values ------------------------------------------------------
+for i in "${!ENV_VARS[@]}"; do
+  env_var="${ENV_VARS[$i]}"
+
+  if [[ ! "$env_var" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
+    echo "${C_RED}Error: --env value is not a KEY=VALUE pair: ${env_var}${C_RESET}" >&2
+    exit 1
+  fi
+
+  # Every variable ends up in a single comma-separated --web-environment-add
+  # string below, which is all 'ddev config' accepts - a comma inside a value
+  # would silently split it into a second, bogus variable rather than fail.
+  if [[ "$env_var" == *,* ]]; then
+    echo "${C_RED}Error: --env values cannot contain a comma (ddev config takes one comma-separated list): ${env_var}${C_RESET}" >&2
+    echo "${C_YELLOW}Set it in .ddev/config.yaml or .ddev/.env.web after setup instead - see docs/environment-variables.md.${C_RESET}" >&2
     exit 1
   fi
 done
@@ -584,13 +624,52 @@ fi
 # TYPO3_CONTEXT=Development: these are disposable local instances, never anything
 # running under Production - Development context relaxes error output, disables
 # production-only caches, and is what the debug settings further down expect.
-ddev config \
-  --project-type=typo3 \
-  --project-name="$PROJECT_NAME" \
-  --docroot=public \
-  --create-docroot \
-  --php-version="$PHP_VERSION" \
-  --web-environment-add="TYPO3_CONTEXT=Development"
+# Anything from --env is appended after it, so passing e.g.
+# --env=TYPO3_CONTEXT=Development/DDEV overrides the default rather than
+# fighting with it - see the dedupe below.
+WEB_ENV=("TYPO3_CONTEXT=Development")
+if [[ ${#ENV_VARS[@]} -gt 0 ]]; then
+  WEB_ENV+=("${ENV_VARS[@]}")
+  echo "${C_CYAN}==> Setting environment variables in the web container:${C_RESET}"
+  printf '    - %s\n' "${ENV_VARS[@]}"
+fi
+
+# Keep only the last occurrence of each key: 'ddev config' would happily write
+# both into config.yaml, leaving which one wins up to the container's env.
+WEB_ENV_DEDUPED=()
+for i in "${!WEB_ENV[@]}"; do
+  key="${WEB_ENV[$i]%%=*}"
+  duplicate=0
+  for ((j = i + 1; j < ${#WEB_ENV[@]}; j++)); do
+    [[ "${WEB_ENV[$j]%%=*}" == "$key" ]] && duplicate=1 && break
+  done
+  [[ "$duplicate" -eq 0 ]] && WEB_ENV_DEDUPED+=("${WEB_ENV[$i]}")
+done
+
+# 'ddev config' takes one comma-separated list, not a repeatable flag (a second
+# --web-environment-add would replace the first). --env values are checked for
+# commas during argument validation above, so joining here is safe.
+WEB_ENVIRONMENT="$(IFS=,; echo "${WEB_ENV_DEDUPED[*]}")"
+
+DDEV_CONFIG_ARGS=(
+  --project-type=typo3
+  --project-name="$PROJECT_NAME"
+  --docroot=public
+  --create-docroot
+  --php-version="$PHP_VERSION"
+  --web-environment-add="$WEB_ENVIRONMENT"
+)
+
+# Xdebug ships with DDEV but is off by default, since it slows down every single
+# request - keep that default and only turn it on when asked, but do it here at
+# config time so it's live from the first 'ddev start' rather than needing a
+# 'ddev xdebug on' (plus the restart it triggers) afterwards.
+if [[ "$XDEBUG" -eq 1 ]]; then
+  echo "${C_CYAN}==> Enabling Xdebug for step debugging${C_RESET}"
+  DDEV_CONFIG_ARGS+=(--xdebug-enabled=true)
+fi
+
+ddev config "${DDEV_CONFIG_ARGS[@]}"
 
 # Written as early as possible, before anything that could still fail (Composer,
 # TYPO3 setup, ...) - --list/--cleanup key off this, not typo3-credentials.txt
@@ -922,6 +1001,14 @@ echo "${C_BOLD}Password:${C_RESET}    ${ADMIN_PASSWORD}"
 echo "${C_BOLD}Credentials:${C_RESET} ${PROJECT_DIR}/${CREDENTIALS_FILE}"
 if [[ "$VERBOSE" -eq 1 ]]; then
   echo "${C_BOLD}Verbose log:${C_RESET} ${PROJECT_DIR}/${VERBOSE_LOG}"
+fi
+if [[ "$XDEBUG" -eq 1 ]]; then
+  echo
+  echo "${C_BOLD}Xdebug:${C_RESET}      enabled. Configure your IDE's PHP server with the name"
+  echo "             ${PROJECT_NAME}.ddev.site (DDEV sets PHP_IDE_CONFIG in the container"
+  echo "             for you), then set a breakpoint and start listening."
+  echo "             Turn it off again with 'ddev xdebug off' inside ${PROJECT_DIR}."
+  echo "             See docs/xdebug.md."
 fi
 echo "To clean up this instance: ./typo3-ddev-setup.sh --c ${SUFFIX:-$PROJECT_NAME}"
 
