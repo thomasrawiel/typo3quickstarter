@@ -47,14 +47,32 @@ Installed into /home/you/.local/bin:
 
 ## Updating
 
-Updating is just installing again — re-run the `curl` line, or `./install.sh` after pulling a newer checkout. The `Update:` line tells you which version you came from.
+```bash
+typo3quickstarter update
+```
+
+Fetches the latest release, compares it against what you're running and asks before replacing anything:
+
+```
+==> Checking for a newer release
+Installed: 0.5.0
+Latest:    0.6.0
+
+Install 0.6.0 over 0.5.0? [y/N] y
+
+==> Updated 0.5.0 -> 0.6.0
+```
+
+It only ever moves forward — running a build that's ahead of the latest release (or already on it) is reported and left alone. A copy inside a git checkout is refused, since `git pull` is the right tool there.
+
+Re-running `install.sh` (or the `curl` line) works as well and additionally refreshes the uninstaller.
 
 ## Uninstalling
 
 `install.sh` puts a copy of the uninstaller next to the command as `typo3quickstarter-uninstall`, so removing it never depends on having a checkout around:
 
 ```bash
-typo3quickstarter-uninstall            # add the same --prefix you installed with
+typo3quickstarter uninstall            # or: typo3quickstarter-uninstall
 ```
 
 From a checkout, `./uninstall.sh` does the same thing. It removes the command, its alias and itself.

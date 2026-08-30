@@ -34,6 +34,7 @@ LIST=0
 VERBOSE=0
 WITH_GIT=0
 XDEBUG=0
+MODE=""
 COMPOSER_REQUIREMENTS=()
 EXTENSION_PATHS=()
 CLEANUP_TARGETS=()
@@ -45,8 +46,15 @@ usage() {
 Usage: ${INVOCATION} --release=<version> [options]
        ${INVOCATION} --cleanup [--path=DIR]
        ${INVOCATION} --list [--path=DIR]
+       ${INVOCATION} update
+       ${INVOCATION} uninstall
 EOF
   cat <<'EOF'
+
+Commands (only for a copy installed with install.sh):
+  update                  Check GitHub for a newer release, show what would change and
+                          install it after asking.
+  uninstall               Remove the installed command, its alias and the uninstaller.
 
 Options:
   -r=N, --release=N      TYPO3 version to install (currently supported major versions: 11, 12, 13, 14;
@@ -181,9 +189,18 @@ for arg in "$@"; do
           CLEANUP_TARGETS+=("$arg")
           ;;
         *)
-          echo "${C_RED}Unexpected argument: $arg${C_RESET}" >&2
-          usage
-          exit 1
+          # Only a subcommand when no multi-value flag is collecting - otherwise
+          # "--require=update" style values would be swallowed as commands.
+          case "$arg" in
+            update|uninstall)
+              MODE="$arg"
+              ;;
+            *)
+              echo "${C_RED}Unexpected argument: $arg${C_RESET}" >&2
+              usage
+              exit 1
+              ;;
+          esac
           ;;
       esac
       ;;
@@ -238,9 +255,13 @@ for i in "${!ENV_VARS[@]}"; do
   fi
 done
 
-command -v docker >/dev/null 2>&1 || { echo "${C_RED}Error: docker is not installed or not in PATH.${C_RESET}" >&2; exit 1; }
-command -v ddev >/dev/null 2>&1 || { echo "${C_RED}Error: ddev is not installed or not in PATH.${C_RESET}" >&2; exit 1; }
-docker info >/dev/null 2>&1 || { echo "${C_RED}Error: docker daemon is not running.${C_RESET}" >&2; exit 1; }
+# 'update' and 'uninstall' never touch a container, so they must not insist on a
+# working Docker - you can still update a copy on a machine where DDEV is broken.
+if [[ -z "$MODE" ]]; then
+  command -v docker >/dev/null 2>&1 || { echo "${C_RED}Error: docker is not installed or not in PATH.${C_RESET}" >&2; exit 1; }
+  command -v ddev >/dev/null 2>&1 || { echo "${C_RED}Error: ddev is not installed or not in PATH.${C_RESET}" >&2; exit 1; }
+  docker info >/dev/null 2>&1 || { echo "${C_RED}Error: docker daemon is not running.${C_RESET}" >&2; exit 1; }
+fi
 if [[ "$WITH_GIT" -eq 1 ]]; then
   command -v git >/dev/null 2>&1 || { echo "${C_RED}Error: --with-git needs git, which is not installed or not in PATH.${C_RESET}" >&2; exit 1; }
   [[ -t 0 ]] || { echo "${C_RED}Error: --with-git needs an interactive terminal to ask what to version.${C_RESET}" >&2; exit 1; }
@@ -543,6 +564,120 @@ run_cleanup() {
 
   echo "${C_GREEN}Cleanup done.${C_RESET}"
 }
+
+# --- update / uninstall -------------------------------------------------------
+# Both act on the copy of this script that is actually running, which is the one
+# install.sh put on PATH. Started through the t3quickstarter symlink, $0 is that
+# link - resolve it, or an update would replace the symlink with a regular file.
+UPDATE_URL="https://github.com/pagea-dev/typo3quickstarter/releases/latest/download/typo3-ddev-setup.sh"
+
+# Numeric per-component compare, so "update" never walks backwards: running an
+# unreleased build (0.5.0 while 0.4.1 is the newest release) must not be offered
+# a "newer" version. Done by hand rather than with `sort -V`, which is GNU-only.
+version_gt() {
+  local -a a b
+  local i x y
+  IFS=. read -r -a a <<< "$1"
+  IFS=. read -r -a b <<< "$2"
+  for i in 0 1 2; do
+    x="${a[$i]:-0}"; y="${b[$i]:-0}"
+    [[ "$x" =~ ^[0-9]+$ ]] || return 1
+    [[ "$y" =~ ^[0-9]+$ ]] || return 1
+    ((10#$x > 10#$y)) && return 0
+    ((10#$x < 10#$y)) && return 1
+  done
+  return 1
+}
+
+self_path() {
+  local self="$0"
+  [[ -L "$self" ]] && self="$(readlink "$self")"
+  case "$self" in
+    /*) echo "$self" ;;
+    *)  echo "$(cd -- "$(dirname -- "$self")" && pwd)/$(basename -- "$self")" ;;
+  esac
+}
+
+run_uninstall() {
+  local self dir uninstaller
+  self="$(self_path)"
+  dir="$(dirname -- "$self")"
+  uninstaller="${dir}/typo3quickstarter-uninstall"
+
+  if [[ ! -x "$uninstaller" ]]; then
+    echo "${C_YELLOW}This copy wasn't installed with install.sh, so there is nothing to uninstall.${C_RESET}"
+    echo "Delete ${self} to get rid of it."
+    exit 0
+  fi
+
+  exec "$uninstaller" --prefix="$dir"
+}
+
+# Global on purpose: the EXIT trap below runs after run_update has returned, so a
+# local would already be out of scope by then - leaving the download behind and,
+# under `set -u`, erroring on the way out.
+UPDATE_TMP=""
+
+run_update() {
+  local self dir latest
+  self="$(self_path)"
+  dir="$(dirname -- "$self")"
+
+  if [[ -d "${dir}/.git" ]]; then
+    echo "${C_YELLOW}${self} is inside a git checkout - update it with 'git pull' instead.${C_RESET}" >&2
+    exit 1
+  fi
+  command -v curl >/dev/null 2>&1 || { echo "${C_RED}Error: 'update' needs curl, which is not in PATH.${C_RESET}" >&2; exit 1; }
+
+  echo "${C_CYAN}==> Checking for a newer release${C_RESET}"
+  # The release is the only source of truth for "latest", and its version lives
+  # in the file itself - so fetch it and read SCRIPT_VERSION out of the copy
+  # rather than parsing tags or JSON out of an API.
+  UPDATE_TMP="$(mktemp)"
+  trap 'rm -f "${UPDATE_TMP:-}"' EXIT
+  curl -fsSL "$UPDATE_URL" -o "$UPDATE_TMP" || { echo "${C_RED}Error: could not download ${UPDATE_URL}${C_RESET}" >&2; exit 1; }
+  latest="$(grep -m1 '^SCRIPT_VERSION=' "$UPDATE_TMP" | cut -d'"' -f2)"
+  [[ -n "$latest" ]] || { echo "${C_RED}Error: the downloaded file has no version line - not touching anything.${C_RESET}" >&2; exit 1; }
+
+  echo "${C_BOLD}Installed:${C_RESET} ${SCRIPT_VERSION}"
+  echo "${C_BOLD}Latest:${C_RESET}    ${latest}"
+  if [[ "$latest" == "$SCRIPT_VERSION" ]]; then
+    echo "${C_GREEN}Already up to date.${C_RESET}"
+    exit 0
+  fi
+  if ! version_gt "$latest" "$SCRIPT_VERSION"; then
+    echo "${C_GREEN}Nothing to do - ${SCRIPT_VERSION} is ahead of the latest release.${C_RESET}"
+    exit 0
+  fi
+
+  [[ -w "$self" ]] && [[ -w "$dir" ]] || {
+    echo "${C_RED}Error: no write permission on ${self} - re-run with sudo.${C_RESET}" >&2
+    exit 1
+  }
+
+  echo
+  confirm "${C_YELLOW}Install ${latest} over ${SCRIPT_VERSION}?${C_RESET}" || { echo "${C_YELLOW}Left it at ${SCRIPT_VERSION}.${C_RESET}"; exit 0; }
+
+  # Never write into the running file: bash reads it as it goes, and truncating
+  # it mid-run feeds it garbage. Staging next to it and renaming swaps the
+  # directory entry instead, leaving this process on the old inode.
+  local staged="${dir}/.typo3quickstarter-update.$$"
+  install -m 755 "$UPDATE_TMP" "$staged"
+  mv -f "$staged" "$self"
+
+  echo
+  echo "${C_GREEN}${C_BOLD}==> Updated ${SCRIPT_VERSION} -> ${latest}${C_RESET}"
+  echo "Release notes: https://github.com/pagea-dev/typo3quickstarter/releases"
+  echo "The uninstaller alongside it is left as it is; re-run install.sh if you want it refreshed too."
+}
+
+if [[ -n "$MODE" ]]; then
+  case "$MODE" in
+    update) run_update ;;
+    uninstall) run_uninstall ;;
+  esac
+  exit 0
+fi
 
 if [[ "$LIST" -eq 1 ]]; then
   run_list

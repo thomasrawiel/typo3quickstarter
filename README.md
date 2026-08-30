@@ -114,6 +114,15 @@ To clean up this instance: typo3quickstarter --c a1b2
 
 > The very first time DDEV adds a new `*.ddev.site` hostname to your system, it needs `sudo` to update `/etc/hosts` — you'll get a normal password prompt for that. It only happens once per hostname.
 
+### Commands
+
+| Command | Description |
+|---|---|
+| `typo3quickstarter update` | Check GitHub for a newer release and install it after asking |
+| `typo3quickstarter uninstall` | Remove the installed command, its alias and the uninstaller |
+
+Both only apply to a copy installed with `install.sh` — see [docs/installation.md](docs/installation.md).
+
 ### Options
 
 | Flag | Description | Default |
@@ -134,6 +143,8 @@ To clean up this instance: typo3quickstarter --c a1b2
 | `--version` | Show the script's own version — see [docs/information.md](docs/information.md) | — |
 
 ### More examples
+
+The examples below use the installed command. Every one of them works just as well with `./typo3-ddev-setup.sh` if you'd rather keep the single file around as a portable copy — on a USB stick, in a project folder, or on a machine you don't want to install anything on. Nothing is stored outside the instance folder either way.
 
 Latest TYPO3 14 with a couple of extensions and a personal admin login, in one command:
 
