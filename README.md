@@ -150,7 +150,7 @@ Pick option 2 when asked, follow the kickstarter's prompts, and you'll have a wo
 
 ## Documentation
 
-- [docs/installation.md](docs/installation.md) — the single-file install and the system-wide `typo3quickstarter`/`t3quickstarter` command via `install.sh`
+- [docs/installation.md](docs/installation.md) — the single-file install and the system-wide `typo3quickstarter`/`t3quickstarter` command via `install.sh`/`uninstall.sh`
 - [docs/examples.md](docs/examples.md) — practical recipes for common scenarios: pinning a patch release, custom admin logins, extensions, cleanup, and more
 - [docs/versions.md](docs/versions.md) — selecting a version, pinning an exact patch release, the `--no-security-blocking` security note, TYPO3 v11 quirks
 - [docs/backend-users.md](docs/backend-users.md) — the admin backend user

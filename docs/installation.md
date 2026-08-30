@@ -41,15 +41,23 @@ Default is `~/.local/bin`, which needs no `sudo`. If that directory isn't in you
 ./install.sh --prefix=/usr/local/bin   # machine-wide, usually needs sudo
 ```
 
-### Updating and uninstalling
+### Updating
 
 Updating is just installing again — run `./install.sh` after pulling a newer version, or re-run the `curl` line above to pull the latest release.
 
+### Uninstalling
+
 ```bash
-./install.sh --uninstall               # add the same --prefix if you used one
+./uninstall.sh                         # add the same --prefix you installed with
 ```
 
-The installer only ever touches files it recognizes as its own: a same-named command from somewhere else is neither overwritten on install nor removed on uninstall.
+Or without a checkout:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/pagea-dev/typo3quickstarter/main/uninstall.sh | bash
+```
+
+Installing and removing are separate scripts on purpose, so each does one thing. Both only ever touch files they recognize as their own: a same-named command from somewhere else is neither overwritten on install nor removed on uninstall. Instances you already created are not affected either way — those are removed with the script's own `--cleanup` (see [instances.md](instances.md)).
 
 ## Prerequisites
 

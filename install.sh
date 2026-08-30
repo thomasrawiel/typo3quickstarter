@@ -7,7 +7,8 @@ set -euo pipefail
 #
 #   curl -fsSL https://raw.githubusercontent.com/pagea-dev/typo3quickstarter/main/install.sh | bash
 #   ./install.sh                 # from a checkout, installs the script next to it
-#   ./install.sh --uninstall
+#
+# Removing it again is uninstall.sh's job, not this script's.
 #
 # See docs/installation.md.
 
@@ -21,7 +22,6 @@ COMMAND_NAME="typo3quickstarter"
 COMMAND_ALIASES=(t3quickstarter)
 
 PREFIX="${HOME}/.local/bin"
-UNINSTALL=0
 
 if [[ -t 1 ]] && [[ -z "${NO_COLOR:-}" ]]; then
   C_RESET=$'\033[0m'; C_BOLD=$'\033[1m'; C_CYAN=$'\033[36m'
@@ -32,24 +32,23 @@ fi
 
 usage() {
   cat <<EOF
-Usage: install.sh [--prefix=DIR] [--uninstall]
+Usage: install.sh [--prefix=DIR]
 
 Installs typo3quickstarter as a command you can run from any directory.
 
   --prefix=DIR   Directory to install into (default: ${HOME}/.local/bin).
                  Use --prefix=/usr/local/bin for a machine-wide install; that
                  usually needs to be run with sudo.
-  --uninstall    Remove the command and its aliases from --prefix again.
   -h, --help     Show this help
 
 Installed commands: ${COMMAND_NAME}, ${COMMAND_ALIASES[*]}
+Remove them again with uninstall.sh.
 EOF
 }
 
 for arg in "$@"; do
   case "$arg" in
     --prefix=*) PREFIX="${arg#*=}" ;;
-    --uninstall) UNINSTALL=1 ;;
     -h|--help) usage; exit 0 ;;
     *)
       echo "${C_RED}Unknown option: $arg${C_RESET}" >&2
@@ -63,30 +62,10 @@ PREFIX="${PREFIX%/}"
 TARGET="${PREFIX}/${COMMAND_NAME}"
 
 # Only ever touch files that are ours: a same-named command from somewhere else
-# must not be overwritten or, worse, removed by --uninstall.
+# must not be overwritten.
 is_ours() {
   [[ -f "$1" ]] && grep -q '^SCRIPT_VERSION=' "$1" && grep -q 'typo3quickstarter\|typo3-ddev-setup' "$1"
 }
-
-if [[ "$UNINSTALL" -eq 1 ]]; then
-  removed=0
-  for name in "$COMMAND_NAME" "${COMMAND_ALIASES[@]}"; do
-    path="${PREFIX}/${name}"
-    if [[ -L "$path" ]]; then
-      rm -f "$path"
-      echo "${C_CYAN}Removed symlink ${path}${C_RESET}"
-      removed=1
-    elif is_ours "$path"; then
-      rm -f "$path"
-      echo "${C_CYAN}Removed ${path}${C_RESET}"
-      removed=1
-    elif [[ -e "$path" ]]; then
-      echo "${C_YELLOW}Left ${path} alone - it wasn't installed by this script.${C_RESET}"
-    fi
-  done
-  [[ "$removed" -eq 1 ]] && echo "${C_GREEN}Uninstalled.${C_RESET}" || echo "${C_YELLOW}Nothing to uninstall in ${PREFIX}.${C_RESET}"
-  exit 0
-fi
 
 # Prefer the script sitting next to this installer (git checkout), fall back to
 # the latest release asset (curl | bash, where there is no checkout at all).
@@ -141,6 +120,6 @@ esac
 echo "    ${COMMAND_NAME} --release=13"
 echo "    ${COMMAND_ALIASES[0]} --release=13 --xdebug"
 echo
-UNINSTALL_HINT="$0 --uninstall"
+UNINSTALL_HINT="./uninstall.sh"
 [[ "$PREFIX" != "${HOME}/.local/bin" ]] && UNINSTALL_HINT="${UNINSTALL_HINT} --prefix=${PREFIX}"
 echo "Uninstall again with: ${C_BOLD}${UNINSTALL_HINT}${C_RESET}"
