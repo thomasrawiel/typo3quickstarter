@@ -1,19 +1,40 @@
+
+
+<div align="center">
+  
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20this%20project-FF5E5B?logo=kofi&logoColor=white)](https://ko-fi.com/pageadev)
+[![TYPO3 11.5](https://img.shields.io/badge/TYPO3-11.5-9f9f9f?maxAge=3600&logo=typo3)](https://get.typo3.org/)
+[![TYPO3 12.4](https://img.shields.io/badge/TYPO3-12.4-ff8700?maxAge=3600&logo=typo3)](https://get.typo3.org/)
+[![TYPO3 13.4](https://img.shields.io/badge/TYPO3-13.4-ff8700?maxAge=3600&logo=typo3)](https://get.typo3.org/)
+[![TYPO3 14.3](https://img.shields.io/badge/TYPO3-14.3-ff8700?maxAge=3600&logo=typo3)](https://get.typo3.org/)
+[![Bash](https://img.shields.io/badge/Bash-4EAA25?logo=gnubash&logoColor=white)](https://www.gnu.org/software/bash/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
+[![Docker](https://img.shields.io/badge/Docker-required-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![DDEV](https://img.shields.io/badge/DDEV-required-02A8D3?logo=ddev&logoColor=white)](https://ddev.com/)
+
 # typo3quickstarter
 
 One-command bash script that spins up disposable TYPO3 instances on [DDEV](https://ddev.com). Pick a version (or let it grab the latest), and it configures DDEV, installs TYPO3 via Composer, sets up the database and an admin user, drops the credentials into a local file, and opens the backend in your browser.
 
 Built because roughly half of all TYPO3 sites out there are still running on old major versions — this makes it trivial to spin up several versions side by side and see what actually changed.
 
-Got an idea for a feature, or found a bug? [Open an issue](https://github.com/pagea-dev/typo3quickstarter/issues) - feature requests are welcome, not just bug reports.
+Got an idea for a feature, or found a bug? [Open an issue](https://github.com/pagea-dev/typo3quickstarter/issues) - feature requests are welcome, not just bug reports.<br><br>
 
 ![typo3quickstarter demo](demo.gif)
 
-## Why
+### ☕ Enjoying typo3quickstarter?
 
-- **One command, zero clicking through the install wizard.** No more re-typing DB credentials or admin passwords by hand.
-- **Test against multiple TYPO3 versions in parallel.** Each instance gets its own name, its own DDEV project, its own URL.
-- **Disposable by design.** Spin one up, break it, tear it down. `--cleanup` gets rid of the mess for you.
-- **Kickstart a brand-new extension and have it under git from the first commit.** `--with-git` runs the official [TYPO3 extension kickstarter](https://github.com/FriendsOfTYPO3/kickstarter), then initializes a repository right where it just created your extension - a working TYPO3 instance, a scaffolded extension, and its own git history, from a single command. See [docs/with-git.md](docs/with-git.md).
+Support the development and keep the updates coming. Even 1€ helps :)
+
+<a href="https://ko-fi.com/pageadev">
+  <img src="https://storage.ko-fi.com/cdn/kofi6.png?v=6" alt="Buy me a coffee at ko-fi.com" height="45">
+</a>
+
+</div>
+
+
+> [!TIP]
+> **New in 0.5.0:** you can install typo3quickstarter system-wide now and run it from any directory — the instance is created wherever you happen to be. Keep it current with `typo3quickstarter update`. See [Installation](#installation).
 
 ## Prerequisites
 
@@ -24,38 +45,60 @@ The script checks for both and bails out early with a clear error if either is m
 
 ## Installation
 
-Grab the latest release — it's a single file with no other dependencies beyond `bash`, `docker`, and `ddev`:
-
-```bash
-curl -LO https://github.com/pagea-dev/typo3quickstarter/releases/latest/download/typo3-ddev-setup.sh
-chmod +x typo3-ddev-setup.sh
+```shell
+curl -fsSL https://raw.githubusercontent.com/pagea-dev/typo3quickstarter/main/install.sh | bash
 ```
 
-Or clone the repo instead if you also want `docs/`, `CHANGELOG.md`, etc.:
+That installs `typo3quickstarter` — plus `t3quickstarter` as a short alias — into `~/.local/bin`. From then on you create instances wherever you happen to be:
 
-```bash
+```shell
+cd ~/projects/customer-x
+typo3quickstarter --release=13
+```
+
+Updating is the same command again; removing it is `typo3quickstarter-uninstall`. See [docs/installation.md](docs/installation.md) for the install location and everything around it.
+
+<details>
+<summary><b>Other ways to install</b> — from a checkout, or the single file with no install at all</summary>
+
+<br>
+
+**From a checkout**, which also gets you `docs/`, `CHANGELOG.md` and everything else:
+
+```shell
 git clone https://github.com/pagea-dev/typo3quickstarter.git
 cd typo3quickstarter
-chmod +x typo3-ddev-setup.sh
+./install.sh
 ```
+
+**Without installing anything**, as a single file you run from where it lies — no other dependencies beyond `bash`, `docker` and `ddev`:
+
+```shell
+curl -LO https://github.com/pagea-dev/typo3quickstarter/releases/latest/download/typo3-ddev-setup.sh && chmod +x typo3-ddev-setup.sh
+./typo3-ddev-setup.sh --release=13
+```
+
+Every flag works the same either way. Run this way, the script prints `./typo3-ddev-setup.sh` back at you instead of `typo3quickstarter` wherever it suggests a follow-up command.
+
+</details>
 
 ## Usage
 
-```bash
-./typo3-ddev-setup.sh --release=13
+```shell
+typo3quickstarter --release=13
 ```
 
 No `--release`? It defaults to the newest supported major version:
 
-```bash
-./typo3-ddev-setup.sh
+```shell
+typo3quickstarter
 ```
 
 That's it. The script will:
 
 1. Create a project folder named e.g. `typo3-v13-a1b2` (or use `--name` if you gave one)
 2. Run `ddev config` with the right PHP version for that TYPO3 release
-3. Install TYPO3 via `ddev composer create`
+3. Install TYPO3 with Composer inside the container, pinned to the release you asked for
 4. Run the non-interactive TYPO3 setup (database, admin user, default site)
 5. Write the login details to `typo3-credentials.txt` in the project folder
 6. Open `/typo3` (the backend) in your browser via `ddev launch`
@@ -67,12 +110,21 @@ At the end you'll see something like:
 URL:         https://typo3-v13-a1b2.ddev.site
 Backend:     https://typo3-v13-a1b2.ddev.site/typo3
 Admin:       admin
-Password:    Ddev-482913605-Aa1
+Password:    q7-Xf#2vRt%Ls9BkPz4m
 Credentials: /home/you/projects/typo3-v13-a1b2/typo3-credentials.txt
-To clean up this instance: ./typo3-ddev-setup.sh --c a1b2
+To clean up this instance: typo3quickstarter --c a1b2
 ```
 
 > The very first time DDEV adds a new `*.ddev.site` hostname to your system, it needs `sudo` to update `/etc/hosts` — you'll get a normal password prompt for that. It only happens once per hostname.
+
+### Commands
+
+| Command | Description |
+|---|---|
+| `typo3quickstarter update` | Check GitHub for a newer release and install it after asking |
+| `typo3quickstarter uninstall` | Remove the installed command, its alias and the uninstaller |
+
+Both only apply to a copy installed with `install.sh` — see [docs/installation.md](docs/installation.md).
 
 ### Options
 
@@ -84,6 +136,8 @@ To clean up this instance: ./typo3-ddev-setup.sh --c a1b2
 | `--admin-user`, `--admin-password`, `--admin-email` | Admin backend user — see [docs/backend-users.md](docs/backend-users.md) | `admin` / random / `admin@<project>.ddev.site` |
 | `--require=PKG` | Install extra Composer packages after setup — see [docs/composer-packages.md](docs/composer-packages.md) | — |
 | `--extension=PATH` | Mount and require a local extension for development — see [docs/composer-packages.md](docs/composer-packages.md) | — |
+| `--env=KEY=VALUE` | Set environment variables in the web container — see [docs/environment-variables.md](docs/environment-variables.md) | — |
+| `--xdebug` | Enable Xdebug for PHP step debugging from the first start — see [docs/xdebug.md](docs/xdebug.md) | off |
 | `--list` | List all instances this script created — see [docs/instances.md](docs/instances.md) | — |
 | `--cleanup`, `--clear`, `--c` [TARGET...] | Interactively remove previously created instances, optionally narrowed down to name/ID matches — see [docs/instances.md](docs/instances.md) | — |
 | `-v`, `--verbose` | Also write the full console output to `verbose.log` — see [docs/verbose-logging.md](docs/verbose-logging.md) | — |
@@ -93,32 +147,44 @@ To clean up this instance: ./typo3-ddev-setup.sh --c a1b2
 
 ### More examples
 
+The examples below use the installed command. Every one of them works just as well with `./typo3-ddev-setup.sh` if you'd rather keep the single file around as a portable copy — on a USB stick, in a project folder, or on a machine you don't want to install anything on. Nothing is stored outside the instance folder either way.
+
 Latest TYPO3 14 with a couple of extensions and a personal admin login, in one command:
 
-```bash
-./typo3-ddev-setup.sh --release=14 --require=b13/container georgringer/news --admin-user=lukas --admin-password='Correct-Horse-1' --admin-email=lukas@example.com
+```shell
+typo3quickstarter --release=14 --require=b13/container georgringer/news --admin-user=lukas --admin-password='Correct-Horse-1' --admin-email=lukas@example.com
 ```
 
 An exact TYPO3 12 patch release, plus a specific version of an extension (`--require` takes any Composer constraint, same as `composer require vendor/package:constraint`):
 
-```bash
-./typo3-ddev-setup.sh --release=12.4.20 --require=georgringer/news:^11.0
+```shell
+typo3quickstarter --release=12.4.20 --require=georgringer/news:^11.0
 ```
 
 Kickstart a brand-new extension against the newest TYPO3, then put just that extension under git once it's created:
 
-```bash
-./typo3-ddev-setup.sh --with-git
+```shell
+typo3quickstarter --with-git
 ```
 
 Pick option 2 when asked, follow the kickstarter's prompts, and you'll have a working TYPO3 instance plus a freshly versioned extension - see [docs/with-git.md](docs/with-git.md).
 
+## Why
+
+- **One command, zero clicking through the install wizard.** No more re-typing DB credentials or admin passwords by hand.
+- **Test against multiple TYPO3 versions in parallel.** Each instance gets its own name, its own DDEV project, its own URL.
+- **Disposable by design.** Spin one up, break it, tear it down. `--cleanup` gets rid of the mess for you.
+- **Kickstart a brand-new extension and have it under git from the first commit.** `--with-git` runs the official [TYPO3 extension kickstarter](https://github.com/FriendsOfTYPO3/kickstarter), then initializes a repository right where it just created your extension - a working TYPO3 instance, a scaffolded extension, and its own git history, from a single command. See [docs/with-git.md](docs/with-git.md).
+
 ## Documentation
 
+- [docs/installation.md](docs/installation.md) — the single-file install and the system-wide `typo3quickstarter`/`t3quickstarter` command via `install.sh`/`uninstall.sh`
 - [docs/examples.md](docs/examples.md) — practical recipes for common scenarios: pinning a patch release, custom admin logins, extensions, cleanup, and more
 - [docs/versions.md](docs/versions.md) — selecting a version, pinning an exact patch release, the `--no-security-blocking` security note, TYPO3 v11 quirks
 - [docs/backend-users.md](docs/backend-users.md) — the admin backend user
 - [docs/composer-packages.md](docs/composer-packages.md) — extra Composer packages via `--require` and local extension development via `--extension`
+- [docs/xdebug.md](docs/xdebug.md) — `--xdebug`: PHP step debugging, toggling Xdebug afterwards, PhpStorm/VS Code setup
+- [docs/environment-variables.md](docs/environment-variables.md) — `--env`: custom environment variables in the web container
 - [docs/development-settings.md](docs/development-settings.md) — the always-on extras every instance gets: Scheduler/Extensions core extensions, `TYPO3_CONTEXT=Development`, debug settings
 - [docs/with-git.md](docs/with-git.md) — `--with-git`: version the whole project or scaffold and version a new extension
 - [docs/instances.md](docs/instances.md) — listing (`--list`) and removing (`--cleanup`) instances
@@ -129,7 +195,7 @@ Pick option 2 when asked, follow the kickstarter's prompts, and you'll have a wo
 
 ## Contributing
 
-Sending a PR? Please read [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) first - in short: branch from an up-to-date `main`, test the script for real before opening the PR, and keep the executable bit intact.
+Sending a PR? Please read [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) first - in short: branch from the current version branch, not `main` (PRs against `main` are ignored), test the script for real before opening the PR, and keep the executable bit intact.
 
 ## Compatibility
 

@@ -5,9 +5,29 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this p
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-30
+
+### Added
+
+- `--xdebug` enables Xdebug for PHP step debugging right at `ddev config` time, so it's live from the first `ddev start` instead of needing a `ddev xdebug on` afterwards. Off by default, as in DDEV itself, since Xdebug costs performance on every request - see [docs/xdebug.md](docs/xdebug.md). Thanks to [@thomasrawiel](https://github.com/thomasrawiel) for the report ([#16](https://github.com/pagea-dev/typo3quickstarter/issues/16)).
+- `update` and `uninstall` as subcommands of the installed command: `typo3quickstarter update` compares the running version against the latest release and installs it after asking, `typo3quickstarter uninstall` hands over to the installed uninstaller. `update` only moves forward (a build ahead of the release is left alone), refuses to touch a copy inside a git checkout, and stages the new version next to the old one before renaming it into place, so the running script is never overwritten underneath itself.
+- `install.sh` installs the script as a system-wide command - `typo3quickstarter`, with `t3quickstarter` as a short alias - so instances can be created from any directory without keeping a copy of the script next to them. Installs to `~/.local/bin` by default (`--prefix=DIR` for anywhere else), with `uninstall.sh` as its counterpart, which the installer places next to the command as `typo3quickstarter-uninstall` so removing it never needs a checkout. Both refuse to overwrite or delete a same-named command they didn't install, and work both from a checkout and piped straight from `curl`. The usage text and the "To clean up this instance" hint now print whichever name the script was called under - see [docs/installation.md](docs/installation.md) ([#9](https://github.com/pagea-dev/typo3quickstarter/issues/9)).
+- `--env=KEY=VALUE` sets arbitrary environment variables in the web container, in place before the install even starts. Same repeat/space-separated syntax as `--require`, and a variable the script sets itself (`TYPO3_CONTEXT`) is overridden rather than duplicated when you pass your own - see [docs/environment-variables.md](docs/environment-variables.md) ([#16](https://github.com/pagea-dev/typo3quickstarter/issues/16)).
+
 ### Fixed
 
-- Every install run aborted at `ddev composer create-project` with "`.typo3-ddev-setup-marker` is not allowed to be present": `ddev composer create-project` refuses to run unless the project directory is empty apart from a small whitelist, and 0.4.0 wrote that marker file to the project root beforehand. The marker now lives in `.ddev/.typo3-ddev-setup-marker` - a directory `ddev` skips over during that check - so it is still written before anything that can fail, and `--list`/`--cleanup` keep finding partway-failed runs. Instances created with 0.4.1 are still recognized at the old path ([#8](https://github.com/pagea-dev/typo3quickstarter/issues/8)).
+- An unknown option or a stray argument aborted with `C_RED: unbound variable` instead of the intended error message and usage output: the colors are only defined after the argument loop that uses them, which `set -u` rejects. They now start out empty and are filled in once `--verbose` is known.
+
+### Changed
+
+- The final summary now prints absolute paths for the credentials file, the verbose log and the project directory. They used to be relative to wherever the script was started, which stops being useful once it's installed on `PATH` and run from arbitrary directories.
+- README restructured: status badges (supported TYPO3 versions, Bash, Docker/DDEV, license, Ko-fi), a support section, and `shell` code fences throughout. No change to the script itself.
+
+## [0.4.1] - 2026-08-18
+
+### Fixed
+
+- Every install run aborted at `ddev composer create-project` with "`.typo3-ddev-setup-marker` is not allowed to be present": `ddev composer create-project` refuses to run unless the project directory is empty apart from a small whitelist, and 0.4.0 wrote that marker file to the project root beforehand. The marker now lives in `.ddev/.typo3-ddev-setup-marker` - a directory `ddev` skips over during that check - so it is still written before anything that can fail, and `--list`/`--cleanup` keep finding partway-failed runs. Instances created with 0.4.0 are still recognized at the old path ([#8](https://github.com/pagea-dev/typo3quickstarter/issues/8)).
 
 ## [0.4.0] - 2026-08-16
 

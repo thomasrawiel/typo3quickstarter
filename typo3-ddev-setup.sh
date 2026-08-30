@@ -2,7 +2,14 @@
 set -euo pipefail
 
 # Bumped only as part of a GitHub release, not per commit - see CHANGELOG.md.
-SCRIPT_VERSION="0.4.1"
+SCRIPT_VERSION="0.5.0"
+
+# How this script was started, used wherever the output prints a command the user
+# can copy back: run from a checkout that is "./typo3-ddev-setup.sh", but install.sh
+# puts it on PATH under a different name (typo3quickstarter, t3quickstarter), and
+# then the file name would be the wrong thing to print.
+INVOCATION="$(basename -- "$0")"
+[[ "$INVOCATION" == "typo3-ddev-setup.sh" ]] && INVOCATION="./typo3-ddev-setup.sh"
 
 # --- Colors -------------------------------------------------------------------
 # Whether stdout is a real terminal, captured now - before --verbose (parsed
@@ -10,6 +17,10 @@ SCRIPT_VERSION="0.4.1"
 # The actual C_* variables are set further down, once --verbose is known.
 IS_TTY=0
 [[ -t 1 ]] && IS_TTY=1
+
+# Empty defaults so the argument loop below - which runs before the real values
+# are known - can interpolate them without tripping over `set -u`.
+C_RESET="" C_BOLD="" C_CYAN="" C_GREEN="" C_YELLOW="" C_RED=""
 
 # --- Defaults ---------------------------------------------------------------
 T3_VERSION=""
@@ -22,16 +33,28 @@ CLEANUP=0
 LIST=0
 VERBOSE=0
 WITH_GIT=0
+XDEBUG=0
+MODE=""
 COMPOSER_REQUIREMENTS=()
 EXTENSION_PATHS=()
 CLEANUP_TARGETS=()
+ENV_VARS=()
 CURRENT_OPTION=""
 
 usage() {
+  cat <<EOF
+Usage: ${INVOCATION} --release=<version> [options]
+       ${INVOCATION} --cleanup [--path=DIR]
+       ${INVOCATION} --list [--path=DIR]
+       ${INVOCATION} update
+       ${INVOCATION} uninstall
+EOF
   cat <<'EOF'
-Usage: typo3-ddev-setup.sh --release=<version> [options]
-       typo3-ddev-setup.sh --cleanup [--path=DIR]
-       typo3-ddev-setup.sh --list [--path=DIR]
+
+Commands (only for a copy installed with install.sh):
+  update                  Check GitHub for a newer release, show what would change and
+                          install it after asking.
+  uninstall               Remove the installed command, its alias and the uninstaller.
 
 Options:
   -r=N, --release=N      TYPO3 version to install (currently supported major versions: 11, 12, 13, 14;
@@ -50,6 +73,14 @@ Options:
   --extension=PATH        Mount a local extension directory and require it at :@dev for
                           development (see docs/composer-packages.md). Same multi-value syntax
                           as --require.
+  --env=KEY=VALUE         Set an environment variable in the web container. Same multi-value
+                          syntax as --require. Overrides the defaults the script sets itself
+                          (e.g. --env=TYPO3_CONTEXT=Development/DDEV). Values must not contain
+                          a comma - see docs/environment-variables.md.
+  --xdebug                Enable Xdebug from the first start, for PHP step debugging in your
+                          IDE (off by default, as in DDEV itself, since it slows down every
+                          request). Toggle it later with 'ddev xdebug on|off' inside the
+                          project directory - see docs/xdebug.md.
   --c, --clear, --cleanup Interactively pick previously created instances and remove them completely
                           (Docker containers/volumes, DDEV project listing, hosts entry, project directory).
                           Optionally followed by one or more name/ID substrings to only consider
@@ -106,6 +137,14 @@ for arg in "$@"; do
       CURRENT_OPTION="extension"
       EXTENSION_PATHS+=("${arg#*=}")
       ;;
+    --env=*)
+      CURRENT_OPTION="env"
+      ENV_VARS+=("${arg#*=}")
+      ;;
+    --xdebug)
+      CURRENT_OPTION=""
+      XDEBUG=1
+      ;;
     --cleanup|--clear|--c)
       CURRENT_OPTION="cleanup_target"
       CLEANUP=1
@@ -143,13 +182,25 @@ for arg in "$@"; do
         extension)
           EXTENSION_PATHS+=("$arg")
           ;;
+        env)
+          ENV_VARS+=("$arg")
+          ;;
         cleanup_target)
           CLEANUP_TARGETS+=("$arg")
           ;;
         *)
-          echo "${C_RED}Unexpected argument: $arg${C_RESET}" >&2
-          usage
-          exit 1
+          # Only a subcommand when no multi-value flag is collecting - otherwise
+          # "--require=update" style values would be swallowed as commands.
+          case "$arg" in
+            update|uninstall)
+              MODE="$arg"
+              ;;
+            *)
+              echo "${C_RED}Unexpected argument: $arg${C_RESET}" >&2
+              usage
+              exit 1
+              ;;
+          esac
           ;;
       esac
       ;;
@@ -185,9 +236,32 @@ for i in "${!EXTENSION_PATHS[@]}"; do
   fi
 done
 
-command -v docker >/dev/null 2>&1 || { echo "${C_RED}Error: docker is not installed or not in PATH.${C_RESET}" >&2; exit 1; }
-command -v ddev >/dev/null 2>&1 || { echo "${C_RED}Error: ddev is not installed or not in PATH.${C_RESET}" >&2; exit 1; }
-docker info >/dev/null 2>&1 || { echo "${C_RED}Error: docker daemon is not running.${C_RESET}" >&2; exit 1; }
+# --- check --env values ------------------------------------------------------
+for i in "${!ENV_VARS[@]}"; do
+  env_var="${ENV_VARS[$i]}"
+
+  if [[ ! "$env_var" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
+    echo "${C_RED}Error: --env value is not a KEY=VALUE pair: ${env_var}${C_RESET}" >&2
+    exit 1
+  fi
+
+  # Every variable ends up in a single comma-separated --web-environment-add
+  # string below, which is all 'ddev config' accepts - a comma inside a value
+  # would silently split it into a second, bogus variable rather than fail.
+  if [[ "$env_var" == *,* ]]; then
+    echo "${C_RED}Error: --env values cannot contain a comma (ddev config takes one comma-separated list): ${env_var}${C_RESET}" >&2
+    echo "${C_YELLOW}Set it in .ddev/config.yaml or .ddev/.env.web after setup instead - see docs/environment-variables.md.${C_RESET}" >&2
+    exit 1
+  fi
+done
+
+# 'update' and 'uninstall' never touch a container, so they must not insist on a
+# working Docker - you can still update a copy on a machine where DDEV is broken.
+if [[ -z "$MODE" ]]; then
+  command -v docker >/dev/null 2>&1 || { echo "${C_RED}Error: docker is not installed or not in PATH.${C_RESET}" >&2; exit 1; }
+  command -v ddev >/dev/null 2>&1 || { echo "${C_RED}Error: ddev is not installed or not in PATH.${C_RESET}" >&2; exit 1; }
+  docker info >/dev/null 2>&1 || { echo "${C_RED}Error: docker daemon is not running.${C_RESET}" >&2; exit 1; }
+fi
 if [[ "$WITH_GIT" -eq 1 ]]; then
   command -v git >/dev/null 2>&1 || { echo "${C_RED}Error: --with-git needs git, which is not installed or not in PATH.${C_RESET}" >&2; exit 1; }
   [[ -t 0 ]] || { echo "${C_RED}Error: --with-git needs an interactive terminal to ask what to version.${C_RESET}" >&2; exit 1; }
@@ -281,7 +355,7 @@ run_list() {
   done < <(find_instances "$scan_dir")
 
   if [[ ${#NAMES[@]} -eq 0 ]]; then
-    echo "${C_YELLOW}No typo3-ddev-setup instances found in '${scan_dir}'.${C_RESET}"
+    echo "${C_YELLOW}No typo3quickstarter instances found in '${scan_dir}'.${C_RESET}"
     exit 0
   fi
 
@@ -427,7 +501,7 @@ run_cleanup() {
     if [[ ${#CLEANUP_TARGETS[@]} -gt 0 ]]; then
       echo "${C_YELLOW}No instance matching ${CLEANUP_TARGETS[*]} found in '${scan_dir}'.${C_RESET}"
     else
-      echo "${C_YELLOW}No typo3-ddev-setup instances found in '${scan_dir}'.${C_RESET}"
+      echo "${C_YELLOW}No typo3quickstarter instances found in '${scan_dir}'.${C_RESET}"
     fi
     exit 0
   fi
@@ -490,6 +564,120 @@ run_cleanup() {
 
   echo "${C_GREEN}Cleanup done.${C_RESET}"
 }
+
+# --- update / uninstall -------------------------------------------------------
+# Both act on the copy of this script that is actually running, which is the one
+# install.sh put on PATH. Started through the t3quickstarter symlink, $0 is that
+# link - resolve it, or an update would replace the symlink with a regular file.
+UPDATE_URL="https://github.com/pagea-dev/typo3quickstarter/releases/latest/download/typo3-ddev-setup.sh"
+
+# Numeric per-component compare, so "update" never walks backwards: running an
+# unreleased build (0.5.0 while 0.4.1 is the newest release) must not be offered
+# a "newer" version. Done by hand rather than with `sort -V`, which is GNU-only.
+version_gt() {
+  local -a a b
+  local i x y
+  IFS=. read -r -a a <<< "$1"
+  IFS=. read -r -a b <<< "$2"
+  for i in 0 1 2; do
+    x="${a[$i]:-0}"; y="${b[$i]:-0}"
+    [[ "$x" =~ ^[0-9]+$ ]] || return 1
+    [[ "$y" =~ ^[0-9]+$ ]] || return 1
+    ((10#$x > 10#$y)) && return 0
+    ((10#$x < 10#$y)) && return 1
+  done
+  return 1
+}
+
+self_path() {
+  local self="$0"
+  [[ -L "$self" ]] && self="$(readlink "$self")"
+  case "$self" in
+    /*) echo "$self" ;;
+    *)  echo "$(cd -- "$(dirname -- "$self")" && pwd)/$(basename -- "$self")" ;;
+  esac
+}
+
+run_uninstall() {
+  local self dir uninstaller
+  self="$(self_path)"
+  dir="$(dirname -- "$self")"
+  uninstaller="${dir}/typo3quickstarter-uninstall"
+
+  if [[ ! -x "$uninstaller" ]]; then
+    echo "${C_YELLOW}This copy wasn't installed with install.sh, so there is nothing to uninstall.${C_RESET}"
+    echo "Delete ${self} to get rid of it."
+    exit 0
+  fi
+
+  exec "$uninstaller" --prefix="$dir"
+}
+
+# Global on purpose: the EXIT trap below runs after run_update has returned, so a
+# local would already be out of scope by then - leaving the download behind and,
+# under `set -u`, erroring on the way out.
+UPDATE_TMP=""
+
+run_update() {
+  local self dir latest
+  self="$(self_path)"
+  dir="$(dirname -- "$self")"
+
+  if [[ -d "${dir}/.git" ]]; then
+    echo "${C_YELLOW}${self} is inside a git checkout - update it with 'git pull' instead.${C_RESET}" >&2
+    exit 1
+  fi
+  command -v curl >/dev/null 2>&1 || { echo "${C_RED}Error: 'update' needs curl, which is not in PATH.${C_RESET}" >&2; exit 1; }
+
+  echo "${C_CYAN}==> Checking for a newer release${C_RESET}"
+  # The release is the only source of truth for "latest", and its version lives
+  # in the file itself - so fetch it and read SCRIPT_VERSION out of the copy
+  # rather than parsing tags or JSON out of an API.
+  UPDATE_TMP="$(mktemp)"
+  trap 'rm -f "${UPDATE_TMP:-}"' EXIT
+  curl -fsSL "$UPDATE_URL" -o "$UPDATE_TMP" || { echo "${C_RED}Error: could not download ${UPDATE_URL}${C_RESET}" >&2; exit 1; }
+  latest="$(grep -m1 '^SCRIPT_VERSION=' "$UPDATE_TMP" | cut -d'"' -f2)"
+  [[ -n "$latest" ]] || { echo "${C_RED}Error: the downloaded file has no version line - not touching anything.${C_RESET}" >&2; exit 1; }
+
+  echo "${C_BOLD}Installed:${C_RESET} ${SCRIPT_VERSION}"
+  echo "${C_BOLD}Latest:${C_RESET}    ${latest}"
+  if [[ "$latest" == "$SCRIPT_VERSION" ]]; then
+    echo "${C_GREEN}Already up to date.${C_RESET}"
+    exit 0
+  fi
+  if ! version_gt "$latest" "$SCRIPT_VERSION"; then
+    echo "${C_GREEN}Nothing to do - ${SCRIPT_VERSION} is ahead of the latest release.${C_RESET}"
+    exit 0
+  fi
+
+  [[ -w "$self" ]] && [[ -w "$dir" ]] || {
+    echo "${C_RED}Error: no write permission on ${self} - re-run with sudo.${C_RESET}" >&2
+    exit 1
+  }
+
+  echo
+  confirm "${C_YELLOW}Install ${latest} over ${SCRIPT_VERSION}?${C_RESET}" || { echo "${C_YELLOW}Left it at ${SCRIPT_VERSION}.${C_RESET}"; exit 0; }
+
+  # Never write into the running file: bash reads it as it goes, and truncating
+  # it mid-run feeds it garbage. Staging next to it and renaming swaps the
+  # directory entry instead, leaving this process on the old inode.
+  local staged="${dir}/.typo3quickstarter-update.$$"
+  install -m 755 "$UPDATE_TMP" "$staged"
+  mv -f "$staged" "$self"
+
+  echo
+  echo "${C_GREEN}${C_BOLD}==> Updated ${SCRIPT_VERSION} -> ${latest}${C_RESET}"
+  echo "Release notes: https://github.com/pagea-dev/typo3quickstarter/releases"
+  echo "The uninstaller alongside it is left as it is; re-run install.sh if you want it refreshed too."
+}
+
+if [[ -n "$MODE" ]]; then
+  case "$MODE" in
+    update) run_update ;;
+    uninstall) run_uninstall ;;
+  esac
+  exit 0
+fi
 
 if [[ "$LIST" -eq 1 ]]; then
   run_list
@@ -566,6 +754,10 @@ fi
 echo "${C_CYAN}==> Creating TYPO3 ${T3_VERSION} project '${PROJECT_NAME}' in ${PROJECT_DIR}${C_RESET}"
 mkdir -p "$PROJECT_DIR"
 cd "$PROJECT_DIR"
+# From here on every path printed is absolute: with the script installed on PATH
+# it gets run from arbitrary directories, and a relative "./name/credentials.txt"
+# stops being useful the moment you cd somewhere else.
+PROJECT_DIR="$PWD"
 
 if [[ "$VERBOSE" -eq 1 ]]; then
   # 'ddev composer create-project' refuses to run unless the project directory is
@@ -580,13 +772,52 @@ fi
 # TYPO3_CONTEXT=Development: these are disposable local instances, never anything
 # running under Production - Development context relaxes error output, disables
 # production-only caches, and is what the debug settings further down expect.
-ddev config \
-  --project-type=typo3 \
-  --project-name="$PROJECT_NAME" \
-  --docroot=public \
-  --create-docroot \
-  --php-version="$PHP_VERSION" \
-  --web-environment-add="TYPO3_CONTEXT=Development"
+# Anything from --env is appended after it, so passing e.g.
+# --env=TYPO3_CONTEXT=Development/DDEV overrides the default rather than
+# fighting with it - see the dedupe below.
+WEB_ENV=("TYPO3_CONTEXT=Development")
+if [[ ${#ENV_VARS[@]} -gt 0 ]]; then
+  WEB_ENV+=("${ENV_VARS[@]}")
+  echo "${C_CYAN}==> Setting environment variables in the web container:${C_RESET}"
+  printf '    - %s\n' "${ENV_VARS[@]}"
+fi
+
+# Keep only the last occurrence of each key: 'ddev config' would happily write
+# both into config.yaml, leaving which one wins up to the container's env.
+WEB_ENV_DEDUPED=()
+for i in "${!WEB_ENV[@]}"; do
+  key="${WEB_ENV[$i]%%=*}"
+  duplicate=0
+  for ((j = i + 1; j < ${#WEB_ENV[@]}; j++)); do
+    [[ "${WEB_ENV[$j]%%=*}" == "$key" ]] && duplicate=1 && break
+  done
+  [[ "$duplicate" -eq 0 ]] && WEB_ENV_DEDUPED+=("${WEB_ENV[$i]}")
+done
+
+# 'ddev config' takes one comma-separated list, not a repeatable flag (a second
+# --web-environment-add would replace the first). --env values are checked for
+# commas during argument validation above, so joining here is safe.
+WEB_ENVIRONMENT="$(IFS=,; echo "${WEB_ENV_DEDUPED[*]}")"
+
+DDEV_CONFIG_ARGS=(
+  --project-type=typo3
+  --project-name="$PROJECT_NAME"
+  --docroot=public
+  --create-docroot
+  --php-version="$PHP_VERSION"
+  --web-environment-add="$WEB_ENVIRONMENT"
+)
+
+# Xdebug ships with DDEV but is off by default, since it slows down every single
+# request - keep that default and only turn it on when asked, but do it here at
+# config time so it's live from the first 'ddev start' rather than needing a
+# 'ddev xdebug on' (plus the restart it triggers) afterwards.
+if [[ "$XDEBUG" -eq 1 ]]; then
+  echo "${C_CYAN}==> Enabling Xdebug for step debugging${C_RESET}"
+  DDEV_CONFIG_ARGS+=(--xdebug-enabled=true)
+fi
+
+ddev config "${DDEV_CONFIG_ARGS[@]}"
 
 # Written as early as possible, before anything that could still fail (Composer,
 # TYPO3 setup, ...) - --list/--cleanup key off this, not typo3-credentials.txt
@@ -823,7 +1054,7 @@ if [[ "$WITH_GIT" -eq 1 ]]; then
     # encryptionKey in plaintext). packages/ is deliberately left trackable.
     {
       echo ""
-      echo "# Added by typo3-ddev-setup.sh --with-git"
+      echo "# Added by typo3quickstarter --with-git"
       echo "/.ddev/" # also covers .ddev/.typo3-ddev-setup-marker
       echo "/${CREDENTIALS_FILE}"
       echo "/verbose.log"
@@ -919,7 +1150,19 @@ echo "${C_BOLD}Credentials:${C_RESET} ${PROJECT_DIR}/${CREDENTIALS_FILE}"
 if [[ "$VERBOSE" -eq 1 ]]; then
   echo "${C_BOLD}Verbose log:${C_RESET} ${PROJECT_DIR}/${VERBOSE_LOG}"
 fi
-echo "To clean up this instance: ./typo3-ddev-setup.sh --c ${SUFFIX:-$PROJECT_NAME}"
+if [[ "$XDEBUG" -eq 1 ]]; then
+  echo
+  echo "${C_BOLD}Xdebug:${C_RESET}      enabled. Configure your IDE's PHP server with the name"
+  echo "             ${PROJECT_NAME}.ddev.site (DDEV sets PHP_IDE_CONFIG in the container"
+  echo "             for you), then set a breakpoint and start listening."
+  echo "             Turn it off again with 'ddev xdebug off' inside ${PROJECT_DIR}."
+  echo "             See docs/xdebug.md."
+fi
+CLEANUP_HINT="${INVOCATION} --c ${SUFFIX:-$PROJECT_NAME}"
+# Without --path, --cleanup only scans the current directory - which is no longer
+# necessarily the one the instance was created in now that this runs from anywhere.
+[[ "$BASE_PATH" != "." ]] && CLEANUP_HINT="${CLEANUP_HINT} --path=${BASE_PATH}"
+echo "To clean up this instance: ${CLEANUP_HINT}"
 
 echo
 ddev describe

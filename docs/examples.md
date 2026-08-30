@@ -34,6 +34,22 @@ Without these, you still get a working admin account — username `admin`, a ran
 
 Runs `composer require` for each package right after the base install. Repeat `--require=` or list several packages after one occurrence (as above) - both work the same.
 
+## Step through your code in the debugger
+
+```bash
+./typo3-ddev-setup.sh --release=13 --xdebug --extension=/home/me/extensions/my-extension
+```
+
+Xdebug is part of DDEV already, just switched off by default because it slows every request down. `--xdebug` turns it on at config time, so it's live from the first start instead of needing a `ddev xdebug on` afterwards - point your IDE's PHP server at `<project>.ddev.site`, set a breakpoint, done. Toggle it off again later with `ddev xdebug off` inside the project. See [xdebug.md](xdebug.md).
+
+## Pass your own environment variables to the web container
+
+```bash
+./typo3-ddev-setup.sh --release=13 --env=MY_API_TOKEN=abc123 TYPO3_CONTEXT=Development/DDEV
+```
+
+For extensions that read configuration from the environment, or when you want a different application context than the `Development` the script sets by default - your value wins over the script's. The variables are in place before TYPO3 is even installed, so the install itself sees them too. See [environment-variables.md](environment-variables.md).
+
 ## Test whether your extension supports a given TYPO3 version
 
 ```bash
