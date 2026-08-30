@@ -45,8 +45,7 @@ The script checks for both and bails out early with a clear error if either is m
 Grab the latest release — it's a single file with no other dependencies beyond `bash`, `docker`, and `ddev`:
 
 ```shell
-curl -LO https://github.com/pagea-dev/typo3quickstarter/releases/latest/download/typo3-ddev-setup.sh
-chmod +x typo3-ddev-setup.sh
+curl -LO https://github.com/pagea-dev/typo3quickstarter/releases/latest/download/typo3-ddev-setup.sh && chmod +x typo3-ddev-setup.sh
 ```
 
 Or clone the repo instead if you also want `docs/`, `CHANGELOG.md`, etc.:
@@ -77,11 +76,13 @@ No `--release`? It defaults to the newest supported major version:
 ./typo3-ddev-setup.sh
 ```
 
+If you installed it as a command (see above), use `typo3quickstarter` or `t3quickstarter` instead of `./typo3-ddev-setup.sh` — every flag below is identical.
+
 That's it. The script will:
 
 1. Create a project folder named e.g. `typo3-v13-a1b2` (or use `--name` if you gave one)
 2. Run `ddev config` with the right PHP version for that TYPO3 release
-3. Install TYPO3 via `ddev composer create`
+3. Install TYPO3 with Composer inside the container, pinned to the release you asked for
 4. Run the non-interactive TYPO3 setup (database, admin user, default site)
 5. Write the login details to `typo3-credentials.txt` in the project folder
 6. Open `/typo3` (the backend) in your browser via `ddev launch`
@@ -93,7 +94,7 @@ At the end you'll see something like:
 URL:         https://typo3-v13-a1b2.ddev.site
 Backend:     https://typo3-v13-a1b2.ddev.site/typo3
 Admin:       admin
-Password:    Ddev-482913605-Aa1
+Password:    q7-Xf#2vRt%Ls9BkPz4m
 Credentials: /home/you/projects/typo3-v13-a1b2/typo3-credentials.txt
 To clean up this instance: ./typo3-ddev-setup.sh --c a1b2
 ```
@@ -167,7 +168,7 @@ Pick option 2 when asked, follow the kickstarter's prompts, and you'll have a wo
 
 ## Contributing
 
-Sending a PR? Please read [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) first - in short: branch from an up-to-date `main`, test the script for real before opening the PR, and keep the executable bit intact.
+Sending a PR? Please read [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) first - in short: branch from the current version branch, not `main` (PRs against `main` are ignored), test the script for real before opening the PR, and keep the executable bit intact.
 
 ## Compatibility
 
