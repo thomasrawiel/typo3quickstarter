@@ -4,6 +4,13 @@ set -euo pipefail
 # Bumped only as part of a GitHub release, not per commit - see CHANGELOG.md.
 SCRIPT_VERSION="0.5.0"
 
+# How this script was started, used wherever the output prints a command the user
+# can copy back: run from a checkout that is "./typo3-ddev-setup.sh", but install.sh
+# puts it on PATH under a different name (typo3quickstarter, t3quickstarter), and
+# then the file name would be the wrong thing to print.
+INVOCATION="$(basename -- "$0")"
+[[ "$INVOCATION" == "typo3-ddev-setup.sh" ]] && INVOCATION="./typo3-ddev-setup.sh"
+
 # --- Colors -------------------------------------------------------------------
 # Whether stdout is a real terminal, captured now - before --verbose (parsed
 # below) later wraps it in a `tee` pipe, which would always fail this check.
@@ -34,10 +41,12 @@ ENV_VARS=()
 CURRENT_OPTION=""
 
 usage() {
+  cat <<EOF
+Usage: ${INVOCATION} --release=<version> [options]
+       ${INVOCATION} --cleanup [--path=DIR]
+       ${INVOCATION} --list [--path=DIR]
+EOF
   cat <<'EOF'
-Usage: typo3-ddev-setup.sh --release=<version> [options]
-       typo3-ddev-setup.sh --cleanup [--path=DIR]
-       typo3-ddev-setup.sh --list [--path=DIR]
 
 Options:
   -r=N, --release=N      TYPO3 version to install (currently supported major versions: 11, 12, 13, 14;
@@ -610,6 +619,10 @@ fi
 echo "${C_CYAN}==> Creating TYPO3 ${T3_VERSION} project '${PROJECT_NAME}' in ${PROJECT_DIR}${C_RESET}"
 mkdir -p "$PROJECT_DIR"
 cd "$PROJECT_DIR"
+# From here on every path printed is absolute: with the script installed on PATH
+# it gets run from arbitrary directories, and a relative "./name/credentials.txt"
+# stops being useful the moment you cd somewhere else.
+PROJECT_DIR="$PWD"
 
 if [[ "$VERBOSE" -eq 1 ]]; then
   # 'ddev composer create-project' refuses to run unless the project directory is
@@ -906,7 +919,7 @@ if [[ "$WITH_GIT" -eq 1 ]]; then
     # encryptionKey in plaintext). packages/ is deliberately left trackable.
     {
       echo ""
-      echo "# Added by typo3-ddev-setup.sh --with-git"
+      echo "# Added by typo3quickstarter --with-git"
       echo "/.ddev/" # also covers .ddev/.typo3-ddev-setup-marker
       echo "/${CREDENTIALS_FILE}"
       echo "/verbose.log"
@@ -1010,7 +1023,11 @@ if [[ "$XDEBUG" -eq 1 ]]; then
   echo "             Turn it off again with 'ddev xdebug off' inside ${PROJECT_DIR}."
   echo "             See docs/xdebug.md."
 fi
-echo "To clean up this instance: ./typo3-ddev-setup.sh --c ${SUFFIX:-$PROJECT_NAME}"
+CLEANUP_HINT="${INVOCATION} --c ${SUFFIX:-$PROJECT_NAME}"
+# Without --path, --cleanup only scans the current directory - which is no longer
+# necessarily the one the instance was created in now that this runs from anywhere.
+[[ "$BASE_PATH" != "." ]] && CLEANUP_HINT="${CLEANUP_HINT} --path=${BASE_PATH}"
+echo "To clean up this instance: ${CLEANUP_HINT}"
 
 echo
 ddev describe

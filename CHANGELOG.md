@@ -10,6 +10,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this p
 ### Added
 
 - `--xdebug` enables Xdebug for PHP step debugging right at `ddev config` time, so it's live from the first `ddev start` instead of needing a `ddev xdebug on` afterwards. Off by default, as in DDEV itself, since Xdebug costs performance on every request - see [docs/xdebug.md](docs/xdebug.md). Thanks to [@thomasrawiel](https://github.com/thomasrawiel) for the report ([#16](https://github.com/pagea-dev/typo3quickstarter/issues/16)).
+- `install.sh` installs the script as a system-wide command - `typo3quickstarter`, with `t3quickstarter` as a short alias - so instances can be created from any directory without keeping a copy of the script next to them. Installs to `~/.local/bin` by default (`--prefix=DIR` for anywhere else, `--uninstall` to remove), refuses to overwrite or delete a same-named command it didn't install, and works both from a checkout and piped straight from `curl`. The usage text and the "To clean up this instance" hint now print whichever name the script was called under - see [docs/installation.md](docs/installation.md) ([#9](https://github.com/pagea-dev/typo3quickstarter/issues/9)).
 - `--env=KEY=VALUE` sets arbitrary environment variables in the web container, in place before the install even starts. Same repeat/space-separated syntax as `--require`, and a variable the script sets itself (`TYPO3_CONTEXT`) is overridden rather than duplicated when you pass your own - see [docs/environment-variables.md](docs/environment-variables.md) ([#16](https://github.com/pagea-dev/typo3quickstarter/issues/16)).
 
 ### Fixed
@@ -18,6 +19,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this p
 
 ### Changed
 
+- The final summary now prints absolute paths for the credentials file, the verbose log and the project directory. They used to be relative to wherever the script was started, which stops being useful once it's installed on `PATH` and run from arbitrary directories.
 - README restructured: status badges (supported TYPO3 versions, Bash, Docker/DDEV, license, Ko-fi), a support section, and `shell` code fences throughout. No change to the script itself.
 
 ## [0.4.1] - 2026-08-18
