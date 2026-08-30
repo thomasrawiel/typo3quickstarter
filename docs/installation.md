@@ -47,15 +47,13 @@ Updating is just installing again — run `./install.sh` after pulling a newer v
 
 ### Uninstalling
 
-```bash
-./uninstall.sh                         # add the same --prefix you installed with
-```
-
-Or without a checkout:
+`install.sh` puts a copy of the uninstaller next to the command as `typo3quickstarter-uninstall`, so removing it never depends on having a checkout around:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/pagea-dev/typo3quickstarter/main/uninstall.sh | bash
+typo3quickstarter-uninstall            # add the same --prefix you installed with
 ```
+
+From a checkout, `./uninstall.sh` does the same thing. It removes the command, its alias and itself.
 
 Installing and removing are separate scripts on purpose, so each does one thing. Both only ever touch files they recognize as their own: a same-named command from somewhere else is neither overwritten on install nor removed on uninstall. Instances you already created are not affected either way — those are removed with the script's own `--cleanup` (see [instances.md](instances.md)).
 

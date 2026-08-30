@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# typo3quickstarter-managed: installed by install.sh
 set -euo pipefail
 
 # Removes the commands install.sh created. Deliberately standalone - same as the
@@ -13,6 +14,9 @@ set -euo pipefail
 
 COMMAND_NAME="typo3quickstarter"
 COMMAND_ALIASES=(t3quickstarter)
+# install.sh puts a copy of this script here too, so it goes as well - deleting
+# the file while it runs is fine, bash keeps reading from the open descriptor.
+UNINSTALLER_NAME="typo3quickstarter-uninstall"
 
 PREFIX="${HOME}/.local/bin"
 
@@ -33,7 +37,7 @@ Removes the commands install.sh created.
                  Pass the same --prefix you installed with.
   -h, --help     Show this help
 
-Removes: ${COMMAND_NAME}, ${COMMAND_ALIASES[*]}
+Removes: ${COMMAND_NAME}, ${COMMAND_ALIASES[*]}, ${UNINSTALLER_NAME}
 EOF
 }
 
@@ -54,11 +58,13 @@ PREFIX="${PREFIX%/}"
 # Only ever remove files that are ours - a same-named command from somewhere else
 # stays untouched.
 is_ours() {
-  [[ -f "$1" ]] && grep -q '^SCRIPT_VERSION=' "$1" && grep -q 'typo3quickstarter\|typo3-ddev-setup' "$1"
+  # The setup script is recognized by its version line (releases predating the
+  # marker are installable too), the uninstaller by the marker in its header.
+  [[ -f "$1" ]] && grep -qE '^SCRIPT_VERSION=|^# typo3quickstarter-managed' "$1"
 }
 
 removed=0
-for name in "$COMMAND_NAME" "${COMMAND_ALIASES[@]}"; do
+for name in "$COMMAND_NAME" "${COMMAND_ALIASES[@]}" "$UNINSTALLER_NAME"; do
   path="${PREFIX}/${name}"
   if [[ -L "$path" ]]; then
     rm -f "$path"
