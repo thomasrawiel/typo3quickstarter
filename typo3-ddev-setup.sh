@@ -36,6 +36,7 @@ WITH_GIT=0
 XDEBUG=0
 MODE=""
 COMPOSER_REQUIREMENTS=()
+COMPOSER_DEV_REQUIREMENTS=()
 EXTENSION_PATHS=()
 CLEANUP_TARGETS=()
 ENV_VARS=()
@@ -69,6 +70,8 @@ Options:
   --admin-password=PASS   Backend admin password (default: randomly generated)
   --admin-email=MAIL      Backend admin email (default: admin@<project>.ddev.site)
   --require=PKG           Install an extra Composer package after setup. Repeat the flag or
+                          list several packages after one occurrence, space-separated.
+  -require-dev=PKG        Install an extra Composer package wih the --dev option after setup. Repeat the flag or
                           list several packages after one occurrence, space-separated.
   --extension=PATH        Mount a local extension directory and require it at :@dev for
                           development (see docs/composer-packages.md). Same multi-value syntax
@@ -133,6 +136,10 @@ for arg in "$@"; do
       CURRENT_OPTION="require"
       COMPOSER_REQUIREMENTS+=("${arg#*=}")
       ;;
+    --require-dev=*)
+      CURRENT_OPTION="require-dev"
+      COMPOSER_DEV_REQUIREMENTS+=("${arg#*=}")
+      ;;
     --extension=*)
       CURRENT_OPTION="extension"
       EXTENSION_PATHS+=("${arg#*=}")
@@ -178,6 +185,9 @@ for arg in "$@"; do
       case "$CURRENT_OPTION" in
         require)
           COMPOSER_REQUIREMENTS+=("$arg")
+          ;;
+        require-dev)
+          COMPOSER_DEV_REQUIREMENTS+=("$arg")
           ;;
         extension)
           EXTENSION_PATHS+=("$arg")
@@ -927,6 +937,15 @@ if [[ ${#COMPOSER_REQUIREMENTS[@]} -gt 0 ]]; then
 
   ddev composer require \
     "${COMPOSER_REQUIREMENTS[@]}" \
+    --no-interaction --no-security-blocking
+fi
+
+if [[ ${#COMPOSER_DEV_REQUIREMENTS[@]} -gt 0 ]]; then
+  echo "${C_CYAN}==> Installing additional Composer requirements for development:${C_RESET}"
+  printf '    - %s\n' "${COMPOSER_DEV_REQUIREMENTS[@]}"
+
+  ddev composer require --dev \
+    "${COMPOSER_DEV_REQUIREMENTS[@]}" \
     --no-interaction --no-security-blocking
 fi
 

@@ -128,22 +128,23 @@ Both only apply to a copy installed with `install.sh` — see [docs/installation
 
 ### Options
 
-| Flag | Description | Default |
+| Flag                                                | Description                                                                                                                                 | Default |
 |---|---|---|
-| `-r=N`, `--release=N` | TYPO3 version to install — see [docs/versions.md](docs/versions.md) | highest supported |
-| `--name=NAME` | DDEV project name | auto-generated, e.g. `typo3-v13-a1b2` |
-| `--path=DIR` | Where the project folder is created (also used by `--cleanup`) | current directory |
-| `--admin-user`, `--admin-password`, `--admin-email` | Admin backend user — see [docs/backend-users.md](docs/backend-users.md) | `admin` / random / `admin@<project>.ddev.site` |
-| `--require=PKG` | Install extra Composer packages after setup — see [docs/composer-packages.md](docs/composer-packages.md) | — |
-| `--extension=PATH` | Mount and require a local extension for development — see [docs/composer-packages.md](docs/composer-packages.md) | — |
-| `--env=KEY=VALUE` | Set environment variables in the web container — see [docs/environment-variables.md](docs/environment-variables.md) | — |
-| `--xdebug` | Enable Xdebug for PHP step debugging from the first start — see [docs/xdebug.md](docs/xdebug.md) | off |
-| `--list` | List all instances this script created — see [docs/instances.md](docs/instances.md) | — |
-| `--cleanup`, `--clear`, `--c` [TARGET...] | Interactively remove previously created instances, optionally narrowed down to name/ID matches — see [docs/instances.md](docs/instances.md) | — |
-| `-v`, `--verbose` | Also write the full console output to `verbose.log` — see [docs/verbose-logging.md](docs/verbose-logging.md) | — |
-| `--with-git` | After setup, ask whether to `git init` the whole project or scaffold and version a new extension — see [docs/with-git.md](docs/with-git.md) | — |
-| `-h`, `--help` | Show usage | — |
-| `--version` | Show the script's own version — see [docs/information.md](docs/information.md) | — |
+| `-r=N`, `--release=N`                               | TYPO3 version to install — see [docs/versions.md](docs/versions.md)                                                                         | highest supported |
+| `--name=NAME`                                       | DDEV project name                                                                                                                           | auto-generated, e.g. `typo3-v13-a1b2` |
+| `--path=DIR`                                        | Where the project folder is created (also used by `--cleanup`)                                                                              | current directory |
+| `--admin-user`, `--admin-password`, `--admin-email` | Admin backend user — see [docs/backend-users.md](docs/backend-users.md)                                                                     | `admin` / random / `admin@<project>.ddev.site` |
+| `--require=PKG`                                     | Install extra Composer packages after setup — see [docs/composer-packages.md](docs/composer-packages.md)                                    | — |
+| `--require-dev=PKG`                                  | Install extra Composer packages after setup as development dependencies — see [docs/composer-packages.md](docs/composer-packages.md)        | — |
+| `--extension=PATH`                                  | Mount and require a local extension for development — see [docs/composer-packages.md](docs/composer-packages.md)                            | — |
+| `--env=KEY=VALUE`                                   | Set environment variables in the web container — see [docs/environment-variables.md](docs/environment-variables.md)                         | — |
+| `--xdebug`                                          | Enable Xdebug for PHP step debugging from the first start — see [docs/xdebug.md](docs/xdebug.md)                                            | off |
+| `--list`                                            | List all instances this script created — see [docs/instances.md](docs/instances.md)                                                         | — |
+| `--cleanup`, `--clear`, `--c` [TARGET...]           | Interactively remove previously created instances, optionally narrowed down to name/ID matches — see [docs/instances.md](docs/instances.md) | — |
+| `-v`, `--verbose`                                   | Also write the full console output to `verbose.log` — see [docs/verbose-logging.md](docs/verbose-logging.md)                                | — |
+| `--with-git`                                        | After setup, ask whether to `git init` the whole project or scaffold and version a new extension — see [docs/with-git.md](docs/with-git.md) | — |
+| `-h`, `--help`                                      | Show usage                                                                                                                                  | — |
+| `--version`                                         | Show the script's own version — see [docs/information.md](docs/information.md)                                                              | — |
 
 ### More examples
 
@@ -182,7 +183,7 @@ Pick option 2 when asked, follow the kickstarter's prompts, and you'll have a wo
 - [docs/examples.md](docs/examples.md) — practical recipes for common scenarios: pinning a patch release, custom admin logins, extensions, cleanup, and more
 - [docs/versions.md](docs/versions.md) — selecting a version, pinning an exact patch release, the `--no-security-blocking` security note, TYPO3 v11 quirks
 - [docs/backend-users.md](docs/backend-users.md) — the admin backend user
-- [docs/composer-packages.md](docs/composer-packages.md) — extra Composer packages via `--require` and local extension development via `--extension`
+- [docs/composer-packages.md](docs/composer-packages.md) — extra Composer packages via `--require`, `require-dev` and local extension development via `--extension`
 - [docs/xdebug.md](docs/xdebug.md) — `--xdebug`: PHP step debugging, toggling Xdebug afterwards, PhpStorm/VS Code setup
 - [docs/environment-variables.md](docs/environment-variables.md) — `--env`: custom environment variables in the web container
 - [docs/development-settings.md](docs/development-settings.md) — the always-on extras every instance gets: Scheduler/Extensions core extensions, `TYPO3_CONTEXT=Development`, debug settings
