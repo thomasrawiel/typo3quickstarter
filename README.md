@@ -7,6 +7,7 @@
 [![TYPO3 12.4](https://img.shields.io/badge/TYPO3-12.4-ff8700?maxAge=3600&logo=typo3)](https://get.typo3.org/)
 [![TYPO3 13.4](https://img.shields.io/badge/TYPO3-13.4-ff8700?maxAge=3600&logo=typo3)](https://get.typo3.org/)
 [![TYPO3 14.3](https://img.shields.io/badge/TYPO3-14.3-ff8700?maxAge=3600&logo=typo3)](https://get.typo3.org/)
+[![TYPO3 15 dev](https://img.shields.io/badge/TYPO3-15%20dev-6daae0?maxAge=3600&logo=typo3)](https://get.typo3.org/)
 [![Bash](https://img.shields.io/badge/Bash-4EAA25?logo=gnubash&logoColor=white)](https://www.gnu.org/software/bash/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-required-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
@@ -52,7 +53,7 @@ curl -fsSL https://raw.githubusercontent.com/pagea-dev/typo3quickstarter/main/in
 That installs `typo3quickstarter` — plus `t3quickstarter` as a short alias — into `~/.local/bin`. From then on you create instances wherever you happen to be:
 
 ```shell
-cd ~/projects/customer-x
+cd ~/projects/project-x
 typo3quickstarter --release=13
 ```
 
@@ -96,7 +97,7 @@ typo3quickstarter
 
 That's it. The script will:
 
-1. Create a project folder named e.g. `typo3-v13-a1b2` (or use `--name` if you gave one)
+1. Create a project folder named e.g. `typo3-v13-101` (or use `--name` if you gave one)
 2. Run `ddev config` with the right PHP version for that TYPO3 release
 3. Install TYPO3 with Composer inside the container, pinned to the release you asked for
 4. Run the non-interactive TYPO3 setup (database, admin user, default site)
@@ -107,12 +108,13 @@ At the end you'll see something like:
 
 ```
 ==> Done.
-URL:         https://typo3-v13-a1b2.ddev.site
-Backend:     https://typo3-v13-a1b2.ddev.site/typo3
+URL:         https://typo3-v13-101.ddev.site
+Backend:     https://typo3-v13-101.ddev.site/typo3
 Admin:       admin
 Password:    q7-Xf#2vRt%Ls9BkPz4m
-Credentials: /home/you/projects/typo3-v13-a1b2/typo3-credentials.txt
-To clean up this instance: typo3quickstarter --c a1b2
+Credentials: /home/you/projects/typo3-v13-101/typo3-credentials.txt
+For ports, database and Mailpit details: 'ddev describe' inside /home/you/projects/typo3-v13-101
+To clean up this instance: typo3quickstarter --c 101
 ```
 
 > The very first time DDEV adds a new `*.ddev.site` hostname to your system, it needs `sudo` to update `/etc/hosts` — you'll get a normal password prompt for that. It only happens once per hostname.
@@ -124,26 +126,27 @@ To clean up this instance: typo3quickstarter --c a1b2
 | `typo3quickstarter update` | Check GitHub for a newer release and install it after asking |
 | `typo3quickstarter uninstall` | Remove the installed command, its alias and the uninstaller |
 
-Both only apply to a copy installed with `install.sh` — see [docs/installation.md](docs/installation.md).
+Both only apply to a copy installed with `install.sh` — see [docs/installation.md](docs/installation.md). Every normal run also checks for a newer release and prints a one-line notice under the banner if there is one; it never asks or installs anything, and `TYPO3QUICKSTARTER_NO_UPDATE_CHECK=1` turns it off.
 
 ### Options
 
-| Flag | Description | Default |
+| Flag                                                 | Description                                                                                                                                 | Default |
 |---|---|---|
-| `-r=N`, `--release=N` | TYPO3 version to install — see [docs/versions.md](docs/versions.md) | highest supported |
-| `--name=NAME` | DDEV project name | auto-generated, e.g. `typo3-v13-a1b2` |
-| `--path=DIR` | Where the project folder is created (also used by `--cleanup`) | current directory |
-| `--admin-user`, `--admin-password`, `--admin-email` | Admin backend user — see [docs/backend-users.md](docs/backend-users.md) | `admin` / random / `admin@<project>.ddev.site` |
-| `--require=PKG` | Install extra Composer packages after setup — see [docs/composer-packages.md](docs/composer-packages.md) | — |
-| `--extension=PATH` | Mount and require a local extension for development — see [docs/composer-packages.md](docs/composer-packages.md) | — |
-| `--env=KEY=VALUE` | Set environment variables in the web container — see [docs/environment-variables.md](docs/environment-variables.md) | — |
-| `--xdebug` | Enable Xdebug for PHP step debugging from the first start — see [docs/xdebug.md](docs/xdebug.md) | off |
-| `--list` | List all instances this script created — see [docs/instances.md](docs/instances.md) | — |
-| `--cleanup`, `--clear`, `--c` [TARGET...] | Interactively remove previously created instances, optionally narrowed down to name/ID matches — see [docs/instances.md](docs/instances.md) | — |
-| `-v`, `--verbose` | Also write the full console output to `verbose.log` — see [docs/verbose-logging.md](docs/verbose-logging.md) | — |
-| `--with-git` | After setup, ask whether to `git init` the whole project or scaffold and version a new extension — see [docs/with-git.md](docs/with-git.md) | — |
-| `-h`, `--help` | Show usage | — |
-| `--version` | Show the script's own version — see [docs/information.md](docs/information.md) | — |
+| `-r=N`, `--release=N`                                | TYPO3 version to install — see [docs/versions.md](docs/versions.md)                                                                         | highest supported |
+| `--name=NAME`                                        | DDEV project name                                                                                                                           | auto-generated, e.g. `typo3-v13-101` |
+| `--path=DIR`                                         | Where the project folder is created (also used by `--cleanup`)                                                                              | current directory |
+| `--admin-user`, `--admin-password`, `--admin-email`  | Admin backend user — see [docs/backend-users.md](docs/backend-users.md)                                                                     | `admin` / random / `admin@<project>.ddev.site` |
+| `--require=PKG`                                      | Install extra Composer packages after setup — see [docs/composer-packages.md](docs/composer-packages.md)                                    | — |
+| `--require-dev=PKG`                                  | Install extra Composer packages after setup as development dependencies — see [docs/composer-packages.md](docs/composer-packages.md)        | — |
+| `--extension=PATH`                                   | Mount and require a local extension for development — see [docs/composer-packages.md](docs/composer-packages.md)                            | — |
+| `--env=KEY=VALUE`                                    | Set environment variables in the web container — see [docs/environment-variables.md](docs/environment-variables.md)                         | — |
+| `--xdebug`                                           | Enable Xdebug for PHP step debugging from the first start — see [docs/xdebug.md](docs/xdebug.md)                                            | off |
+| `--list`                                             | List all instances this script created — see [docs/instances.md](docs/instances.md)                                                         | — |
+| `--cleanup`, `--clear`, `--c` [TARGET...]            | Interactively remove previously created instances, optionally narrowed down to name/ID matches — see [docs/instances.md](docs/instances.md) | — |
+| `-v`, `--verbose`                                    | Also write the full console output to `verbose.log` — see [docs/verbose-logging.md](docs/verbose-logging.md)                                | — |
+| `--with-git`                                         | After setup, ask whether to `git init` the whole project or scaffold and version a new extension — see [docs/with-git.md](docs/with-git.md) | — |
+| `-h`, `--help`                                       | Show usage                                                                                                                                  | — |
+| `--version`                                          | Show the script's own version — see [docs/information.md](docs/information.md)                                                              | — |
 
 ### More examples
 
@@ -182,7 +185,7 @@ Pick option 2 when asked, follow the kickstarter's prompts, and you'll have a wo
 - [docs/examples.md](docs/examples.md) — practical recipes for common scenarios: pinning a patch release, custom admin logins, extensions, cleanup, and more
 - [docs/versions.md](docs/versions.md) — selecting a version, pinning an exact patch release, the `--no-security-blocking` security note, TYPO3 v11 quirks
 - [docs/backend-users.md](docs/backend-users.md) — the admin backend user
-- [docs/composer-packages.md](docs/composer-packages.md) — extra Composer packages via `--require` and local extension development via `--extension`
+- [docs/composer-packages.md](docs/composer-packages.md) — extra Composer packages via `--require`, `--require-dev` and local extension development via `--extension`
 - [docs/xdebug.md](docs/xdebug.md) — `--xdebug`: PHP step debugging, toggling Xdebug afterwards, PhpStorm/VS Code setup
 - [docs/environment-variables.md](docs/environment-variables.md) — `--env`: custom environment variables in the web container
 - [docs/development-settings.md](docs/development-settings.md) — the always-on extras every instance gets: Scheduler/Extensions core extensions, `TYPO3_CONTEXT=Development`, debug settings

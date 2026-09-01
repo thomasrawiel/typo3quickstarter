@@ -75,7 +75,7 @@ All of the above compose freely: a pinned/major release, several Composer packag
 ```
 
 ```
-TYPO3 V12.4.45    typo3-v12-5aae           https://typo3-v12-5aae.ddev.site
+TYPO3 V12.4.45    typo3-v12-284           https://typo3-v12-284.ddev.site
 TYPO3 V13.4.1     typo3-v13-6235           https://typo3-v13-6235.ddev.site
 ```
 
@@ -86,7 +86,7 @@ Non-interactive and safe for scripts/CI - scans `--path` (current directory by d
 Every "Done" summary prints a ready-to-use command for exactly that instance:
 
 ```bash
-./typo3-ddev-setup.sh --c 5aae
+./typo3-ddev-setup.sh --c 284
 ```
 
 `--c`/`--clear`/`--cleanup` accept one or more name/ID substrings to target directly - skips the checklist if that narrows it down to a single match, and asks for confirmation before deleting anything either way.

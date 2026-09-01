@@ -13,7 +13,7 @@ The TYPO3 version shown is read straight out of each instance's `composer.lock` 
 ```
 
 ```
-TYPO3 V12.4.45    typo3-v12-5aae           https://typo3-v12-5aae.ddev.site
+TYPO3 V12.4.45    typo3-v12-284           https://typo3-v12-284.ddev.site
 TYPO3 V13.4.1     typo3-v13-6235           https://typo3-v13-6235.ddev.site
 ```
 
@@ -30,7 +30,7 @@ Non-interactive, plain output — safe to run in scripts or CI. Prints nothing t
 If there's only one instance, there's nothing to pick from — it just asks you to confirm removing that one:
 
 ```
-Found: TYPO3 V12.4.45 | typo3-v12-5aae
+Found: TYPO3 V12.4.45 | typo3-v12-284
 Are you sure you want to remove it? [y/N]
 ```
 
@@ -38,7 +38,7 @@ With more than one, you get an interactive checklist instead:
 
 ```
 Select instances to delete (Up/Down move, Space toggle, Enter confirm, q abort):
-> [ ] TYPO3 V12.4.45 | typo3-v12-5aae
+> [ ] TYPO3 V12.4.45 | typo3-v12-284
   [x] TYPO3 V13.4.1  | typo3-v13-6235
 ```
 
@@ -51,7 +51,7 @@ Confirming the selection doesn't delete anything right away — it lists exactly
 
 ```
 Are you sure you want to remove the following instances?
-  - typo3-v12-5aae
+  - typo3-v12-284
   - typo3-v13-6235
 Proceed? [y/N]
 ```
@@ -65,8 +65,8 @@ Only on `y`/`yes` does it actually run `ddev delete -Oy` for each one (removes c
 Right before actually deleting an instance (any of the paths above - single, checklist, or `--c all`), it's checked for a `.git` directory anywhere inside it - most commonly `packages/<extension>/.git` from [`--with-git`](with-git.md), but this catches any `.git` found in there, not just ones this script created. If one's found, deleting stops for a stronger, separate confirmation:
 
 ```
-WARNING: found a .git directory inside typo3-v12-5aae - there's version-controlled work in there that would be permanently lost.
-Type 'yes' (not just 'y') to delete typo3-v12-5aae anyway - this cannot be undone:
+WARNING: found a .git directory inside typo3-v12-284 - there's version-controlled work in there that would be permanently lost.
+Type 'yes' (not just 'y') to delete typo3-v12-284 anyway - this cannot be undone:
 ```
 
 Unlike every other confirmation in this script, a bare `y` does not count here - only the word `yes` written out in full does (case-insensitive: `yes`/`Yes`/`YES`). Anything else, including a bare `y` or `Y`, skips just that instance and leaves it in place; the rest of the batch (if there is one) is unaffected.
@@ -76,16 +76,16 @@ Unlike every other confirmation in this script, a bare `y` does not count here -
 Every "Done" summary prints a ready-to-use cleanup command for the instance you just created:
 
 ```
-To clean up this instance: ./typo3-ddev-setup.sh --c 5aae
+To clean up this instance: ./typo3-ddev-setup.sh --c 284
 ```
 
 `--c`/`--clear`/`--cleanup` can take one or more name/ID substrings, space-separated (same multi-value syntax as `--require`/`--extension`). Only instances whose name contains at least one of them are considered:
 
 ```bash
-./typo3-ddev-setup.sh --c 5aae
+./typo3-ddev-setup.sh --c 284
 ```
 
-For an auto-generated name like `typo3-v12-5aae`, the 4-character suffix alone is enough and is what the hint prints — it's short and, in practice, unique. For a custom `--name=`, there's no separate suffix, so the hint prints the full name instead.
+For an auto-generated name like `typo3-v12-284`, the three-digit suffix alone is enough and is what the hint prints. Those digits are picked so they don't collide: a candidate is only used if no folder and no DDEV project of that name exists yet — DDEV project names are global, so an instance created in a completely different directory counts too. For a custom `--name=`, there's no separate suffix, so the hint prints the full name instead.
 
 If the filter narrows things down to exactly one instance, it skips straight to the single-instance confirmation (`Found: ... Are you sure you want to remove it?`); with more than one match it still shows the checklist, just restricted to those. No match prints `No instance matching <target> found in '<path>'.` instead of the usual empty-scan message.
 
@@ -99,9 +99,9 @@ If the filter narrows things down to exactly one instance, it skips straight to 
 
 ```
 Are you sure you want to remove ALL of the following instances?
-  - TYPO3 V12.4.45 | typo3-v12-5aae
+  - TYPO3 V12.4.45 | typo3-v12-284
   - TYPO3 V13.4.1  | typo3-v13-6235
 Proceed? [y/N]
 ```
 
-Same `y`/`yes`-only deletion behavior as above - nothing is touched until you confirm, and each instance is only removed from disk once `ddev delete` succeeds for it. Only works when `all` is the sole target; `--c all 5aae` is treated as two literal substrings instead (neither of which is likely to match anything named `all`), not as a shortcut for "everything".
+Same `y`/`yes`-only deletion behavior as above - nothing is touched until you confirm, and each instance is only removed from disk once `ddev delete` succeeds for it. Only works when `all` is the sole target; `--c all 284` is treated as two literal substrings instead (neither of which is likely to match anything named `all`), not as a shortcut for "everything".

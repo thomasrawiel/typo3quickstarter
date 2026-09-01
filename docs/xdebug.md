@@ -28,7 +28,7 @@ So `--xdebug` isn't a decision you're stuck with — it just saves you the extra
 The one thing your IDE needs to get right is the **server name**, which must match the instance's hostname exactly:
 
 ```
-typo3-v13-a1b2.ddev.site
+typo3-v13-101.ddev.site
 ```
 
 You do *not* need to set `PHP_IDE_CONFIG` yourself — DDEV already sets it inside the web container, pointing at that same hostname.

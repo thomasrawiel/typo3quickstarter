@@ -14,6 +14,18 @@ Runs `composer require` for the given packages right after the base TYPO3 instal
 ./typo3-ddev-setup.sh --release=13 --require=georgringer/news b13/container
 ```
 
+## `--require-dev`: install extra packages from Packagist as development dependencies
+
+```bash
+./typo3-ddev-setup.sh --release=13 --require=b13/container --require-dev=a9f/typo3-fractor --require-dev=ssch/typo3-rector
+```
+
+Runs `composer require --dev` for the given packages right after the base TYPO3 install. You can either repeat `--require-dev=` for each package, or list several after one occurrence, separated by spaces:
+
+```bash
+./typo3-ddev-setup.sh --release=13 --require=b13/container --require-dev=a9f/typo3-fractor ssch/typo3-rector
+```
+
 ## `--extension`: mount a local extension for development
 
 ```bash
