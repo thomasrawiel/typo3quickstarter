@@ -34,6 +34,7 @@ LIST=0
 VERBOSE=0
 WITH_GIT=0
 XDEBUG=0
+PING=1
 MODE=""
 COMPOSER_REQUIREMENTS=()
 COMPOSER_DEV_REQUIREMENTS=()
@@ -58,13 +59,15 @@ Commands (only for a copy installed with install.sh):
   uninstall               Remove the installed command, its alias and the uninstaller.
 
 Options:
-  -r=N, --release=N      TYPO3 version to install (currently supported major versions: 11, 12, 13, 14;
-                          defaults to the highest supported version if omitted).
+  -r=N, --release=N      TYPO3 version to install (released: 11, 12, 13, 14; defaults to the
+                          highest released version if omitted).
                           Pass just a major version (e.g. 12) to get the newest release on that
                           line, or pin an exact minor/patch release (e.g. 12.4 or 12.4.20). Pinning
                           an older patch release installs it even if Composer flags it as insecure -
                           see docs/versions.md.
-  --name=NAME             DDEV project name (default: auto-generated, e.g. typo3-v12-a1b2)
+                          15 installs the unreleased development branch and is never the default;
+                          it cannot be pinned, since it has no releases yet.
+  --name=NAME             DDEV project name (default: auto-generated, e.g. typo3-v12-101)
   --path=DIR              Directory the project folder is created in / scanned in for --cleanup (default: current dir)
   --admin-user=USER       Backend admin username (default: admin)
   --admin-password=PASS   Backend admin password (default: randomly generated)
@@ -84,6 +87,9 @@ Options:
                           IDE (off by default, as in DDEV itself, since it slows down every
                           request). Toggle it later with 'ddev xdebug on|off' inside the
                           project directory - see docs/xdebug.md.
+  --no-ping               Skip the anonymous usage ping this script sends when it creates an
+                          instance. The ping is a bare request to ping.pagea.dev with nothing
+                          attached to it, used only to count how often the tool gets used.
   --c, --clear, --cleanup Interactively pick previously created instances and remove them completely
                           (Docker containers/volumes, DDEV project listing, hosts entry, project directory).
                           Optionally followed by one or more name/ID substrings to only consider
@@ -151,6 +157,10 @@ for arg in "$@"; do
     --xdebug)
       CURRENT_OPTION=""
       XDEBUG=1
+      ;;
+    --no-ping)
+      CURRENT_OPTION=""
+      PING=0
       ;;
     --cleanup|--clear|--c)
       CURRENT_OPTION="cleanup_target"
@@ -580,6 +590,7 @@ run_cleanup() {
 # install.sh put on PATH. Started through the t3quickstarter symlink, $0 is that
 # link - resolve it, or an update would replace the symlink with a regular file.
 UPDATE_URL="https://github.com/pagea-dev/typo3quickstarter/releases/latest/download/typo3-ddev-setup.sh"
+PING_URL="https://ping.pagea.dev/"
 
 # Numeric per-component compare, so "update" never walks backwards: running an
 # unreleased build (0.5.0 while 0.4.1 is the newest release) must not be offered
@@ -606,6 +617,20 @@ self_path() {
     /*) echo "$self" ;;
     *)  echo "$(cd -- "$(dirname -- "$self")" && pwd)/$(basename -- "$self")" ;;
   esac
+}
+
+# Downloads the release asset to $1 (timeout $2 seconds) and prints the
+# SCRIPT_VERSION found inside it. The release is the only source of truth for
+# "latest", and its version lives in the file itself - so read it out of the
+# copy rather than parsing tags or JSON out of an API. Returns 1 if the download
+# failed and 2 if the file carries no version line, so the caller can decide
+# whether that is worth an error message or should just be ignored.
+fetch_release() {
+  local target="$1" timeout="$2" version
+  curl -fsSL --max-time "$timeout" "$UPDATE_URL" -o "$target" || return 1
+  version="$(grep -m1 '^SCRIPT_VERSION=' "$target" | cut -d'"' -f2)"
+  [[ -n "$version" ]] || return 2
+  printf '%s\n' "$version"
 }
 
 run_uninstall() {
@@ -637,7 +662,7 @@ run_uninstall() {
 UPDATE_TMP=""
 
 run_update() {
-  local self dir latest
+  local self dir latest rc
   self="$(self_path)"
   dir="$(dirname -- "$self")"
 
@@ -648,14 +673,16 @@ run_update() {
   command -v curl >/dev/null 2>&1 || { echo "${C_RED}Error: 'update' needs curl, which is not in PATH.${C_RESET}" >&2; exit 1; }
 
   echo "${C_CYAN}==> Checking for a newer release${C_RESET}"
-  # The release is the only source of truth for "latest", and its version lives
-  # in the file itself - so fetch it and read SCRIPT_VERSION out of the copy
-  # rather than parsing tags or JSON out of an API.
   UPDATE_TMP="$(mktemp)"
   trap 'rm -f "${UPDATE_TMP:-}"' EXIT
-  curl -fsSL "$UPDATE_URL" -o "$UPDATE_TMP" || { echo "${C_RED}Error: could not download ${UPDATE_URL}${C_RESET}" >&2; exit 1; }
-  latest="$(grep -m1 '^SCRIPT_VERSION=' "$UPDATE_TMP" | cut -d'"' -f2)"
-  [[ -n "$latest" ]] || { echo "${C_RED}Error: the downloaded file has no version line - not touching anything.${C_RESET}" >&2; exit 1; }
+  # Asked for explicitly, so give it room - unlike the passive check on a normal
+  # run, waiting here is the whole point of the command.
+  rc=0
+  latest="$(fetch_release "$UPDATE_TMP" 30)" || rc=$?
+  case "$rc" in
+    1) echo "${C_RED}Error: could not download ${UPDATE_URL}${C_RESET}" >&2; exit 1 ;;
+    2) echo "${C_RED}Error: the downloaded file has no version line - not touching anything.${C_RESET}" >&2; exit 1 ;;
+  esac
 
   echo "${C_BOLD}Installed:${C_RESET} ${SCRIPT_VERSION}"
   echo "${C_BOLD}Latest:${C_RESET}    ${latest}"
@@ -689,6 +716,35 @@ run_update() {
   echo "The uninstaller alongside it is left as it is; re-run install.sh if you want it refreshed too."
 }
 
+# Passive check on a normal run: mentions a newer release, but never gets in the
+# way of the install - it asks nothing and swallows every failure (offline, no
+# curl, GitHub down), because creating an instance must not depend on reaching
+# GitHub. Set TYPO3QUICKSTARTER_NO_UPDATE_CHECK=1 to skip it entirely.
+print_update_notice() {
+  local self dir tmp latest
+  [[ "$IS_TTY" -eq 1 ]] || return 0
+  [[ -z "${TYPO3QUICKSTARTER_NO_UPDATE_CHECK:-}" ]] || return 0
+  command -v curl >/dev/null 2>&1 || return 0
+
+  self="$(self_path)"
+  dir="$(dirname -- "$self")"
+  # A checkout is updated with `git pull` and run_update refuses it outright, so
+  # pointing at the update command would be wrong advice here.
+  [[ -d "${dir}/.git" ]] && return 0
+
+  tmp="$(mktemp)" || return 0
+  # Deliberately short: this is a nice-to-have, not worth stalling a run for.
+  # curl's own errors are dropped too - being offline is not worth a warning on
+  # a run that is about to say so far more clearly anyway.
+  latest="$(fetch_release "$tmp" 3 2>/dev/null)" || { rm -f "$tmp"; return 0; }
+  rm -f "$tmp"
+
+  version_gt "$latest" "$SCRIPT_VERSION" || return 0
+  echo "${C_GREEN}${C_BOLD}An update is available: ${SCRIPT_VERSION} -> ${latest}.${C_RESET}${C_GREEN} Run '${INVOCATION} update' to get the newest version.${C_RESET}"
+  echo
+  return 0
+}
+
 if [[ -n "$MODE" ]]; then
   case "$MODE" in
     update) run_update ;;
@@ -711,9 +767,26 @@ echo "${C_BOLD}${C_CYAN}typo3quickstarter${C_RESET} ${C_GREEN}v${SCRIPT_VERSION}
 echo "${C_CYAN}https://github.com/pagea-dev/typo3quickstarter${C_RESET} · ${C_CYAN}https://pagea.dev/${C_RESET}"
 echo
 
+print_update_notice
+
 # --- Version map --------------------------------------------------------
 # Ordered lowest to highest. Add further versions here once verified with this script.
 SUPPORTED_VERSIONS=(11 12 13 14)
+# Majors that exist upstream but have no release yet. TYPO3 15 is developed on
+# `main`: neither typo3/cms-core nor typo3/cms-base-distribution publish a 15.x
+# branch on Packagist, so "dev-main" (branch-alias 15.0.x-dev) is the only thing
+# that resolves. Deliberately a separate array - the default release above is the
+# last element of SUPPORTED_VERSIONS, and nobody who leaves out --release should
+# end up on a development branch.
+PRERELEASE_VERSIONS=(15)
+
+is_prerelease() {
+  local v
+  for v in "${PRERELEASE_VERSIONS[@]}"; do
+    [[ "$v" == "$1" ]] && return 0
+  done
+  return 1
+}
 
 if [[ -z "$T3_VERSION" ]]; then
   T3_VERSION="${SUPPORTED_VERSIONS[${#SUPPORTED_VERSIONS[@]}-1]}"
@@ -733,8 +806,10 @@ case "$T3_MAJOR" in
   12) PHP_VERSION="8.2"; COMPOSER_CONSTRAINT="^12.4" ;;
   13) PHP_VERSION="8.3"; COMPOSER_CONSTRAINT="^13.4" ;;
   14) PHP_VERSION="8.4"; COMPOSER_CONSTRAINT="^14.3" ;;
+  # Nothing to point a "^15.0" at yet, and its cms-core asks for PHP ^8.5.
+  15) PHP_VERSION="8.5"; COMPOSER_CONSTRAINT="dev-main" ;;
   *)
-    echo "${C_RED}Error: TYPO3 version '$T3_VERSION' is not supported yet (currently: ${SUPPORTED_VERSIONS[*]}).${C_RESET}" >&2
+    echo "${C_RED}Error: TYPO3 version '$T3_VERSION' is not supported yet (released: ${SUPPORTED_VERSIONS[*]}, pre-release: ${PRERELEASE_VERSIONS[*]}).${C_RESET}" >&2
     exit 1
     ;;
 esac
@@ -744,14 +819,53 @@ esac
 # an exact minor/patch version directly. If the user asked for one, install via the
 # normal constraint first and pin every typo3/cms-* package afterwards (see below).
 T3_PIN=""
+IS_PRERELEASE=0
+if is_prerelease "$T3_MAJOR"; then
+  IS_PRERELEASE=1
+fi
+
 if [[ "$T3_VERSION" != "$T3_MAJOR" ]]; then
+  # There is no 15.0.1 to pin to - rewriting "dev-main" to a version that does not
+  # exist would only fail several minutes later, inside Composer.
+  if [[ "$IS_PRERELEASE" -eq 1 ]]; then
+    echo "${C_RED}Error: TYPO3 ${T3_MAJOR} has no releases yet, so '--release=${T3_VERSION}' cannot be pinned to one.${C_RESET}" >&2
+    echo "${C_YELLOW}Use '--release=${T3_MAJOR}' to install the development branch.${C_RESET}" >&2
+    exit 1
+  fi
   T3_PIN="$T3_VERSION"
 fi
 
+if [[ "$IS_PRERELEASE" -eq 1 ]]; then
+  echo "${C_YELLOW}==> TYPO3 ${T3_MAJOR} has no release yet - installing the development branch (dev-main).${C_RESET}"
+  echo "${C_YELLOW}    Expect breakage, and expect two installs made on different days to differ.${C_RESET}"
+fi
+
 # --- Derived values --------------------------------------------------------
+# Three plain digits, no hex: short enough to read off the summary and type
+# straight back into --c, without picking letters out of a blob first. Only 900
+# of them exist, so a candidate is checked before it is used - against the target
+# directory and against DDEV itself, whose project names are global. A name
+# already taken by an instance in some other directory would otherwise only
+# surface later on, as a confusing ddev error. Sets PROJECT_NAME and SUFFIX,
+# which the cleanup hint at the end reads.
+generate_project_name() {
+  local candidate name attempt
+  for ((attempt = 0; attempt < 50; attempt++)); do
+    candidate="$((RANDOM % 900 + 100))"
+    name="typo3-v${T3_MAJOR}-${candidate}"
+    [[ -e "${BASE_PATH%/}/${name}" ]] && continue
+    ddev describe "$name" >/dev/null 2>&1 && continue
+    SUFFIX="$candidate"
+    PROJECT_NAME="$name"
+    return 0
+  done
+  echo "${C_RED}Error: no free name left for TYPO3 ${T3_MAJOR} after ${attempt} tries.${C_RESET}" >&2
+  echo "${C_YELLOW}Clean up a few instances, or pass --name=NAME to pick one yourself.${C_RESET}" >&2
+  exit 1
+}
+
 if [[ -z "$PROJECT_NAME" ]]; then
-  SUFFIX="$(printf '%04x' "$RANDOM")"
-  PROJECT_NAME="typo3-v${T3_MAJOR}-${SUFFIX}"
+  generate_project_name
 fi
 
 if [[ -z "$ADMIN_PASSWORD" ]]; then
@@ -860,6 +974,14 @@ if [[ ${#EXTENSION_PATHS[@]} -gt 0 ]]; then
     } > .ddev/docker-compose.extensions.yaml
 fi
 
+# Anonymous usage counter: a bare request, nothing attached, response ignored -
+# it only tells us how often the tool creates an instance. Kept short and
+# non-fatal on purpose, so a slow or unreachable endpoint can never delay or
+# break a setup, and skipped entirely with --no-ping.
+if [[ "$PING" -eq 1 ]] && command -v curl >/dev/null 2>&1; then
+  curl -fsS --max-time 2 -o /dev/null "$PING_URL" 2>/dev/null || true
+fi
+
 ddev start
 
 # --- Database collation -------------------------------------------------------
@@ -886,7 +1008,26 @@ echo "${C_CYAN}==> Installing with --no-security-blocking: disposable test insta
 # Scaffold the base distribution's composer.json without installing yet, so the
 # extra core packages below (and the version pin, if any) land in the same single
 # install/lock-solve instead of a separate one after the fact.
-ddev composer create-project "typo3/cms-base-distribution:${COMPOSER_CONSTRAINT}" --no-interaction --no-install
+CREATE_PROJECT_ARGS=(--no-interaction --no-install)
+[[ "$IS_PRERELEASE" -eq 1 ]] && CREATE_PROJECT_ARGS+=(--stability=dev)
+ddev composer create-project "typo3/cms-base-distribution:${COMPOSER_CONSTRAINT}" "${CREATE_PROJECT_ARGS[@]}"
+
+# The base distribution's main branch requires every typo3/cms-* at dev-main but
+# sets no minimum-stability of its own, so anything required afterwards - the two
+# packages below and whatever --require asks for - would be judged against the
+# default "stable" and refused. prefer-stable keeps that from dragging unrelated
+# third-party packages to dev versions along the way.
+if [[ "$IS_PRERELEASE" -eq 1 ]]; then
+  ddev composer config minimum-stability dev
+  ddev composer config prefer-stable true
+  # The base distribution's main branch still carries "config.platform.php: 8.2.0"
+  # from the 14 line, while the cms-core it pulls in already requires ^8.5. That
+  # override wins over the PHP actually installed, so Composer rejects its own
+  # packages ("your php version (8.2.0; overridden via config.platform, actual:
+  # 8.5.7)"). Dropping it lets Composer see the container's real PHP - which is
+  # the version this script picked for the release anyway.
+  ddev composer config --unset platform.php
+fi
 
 # typo3/cms-extensionmanager already ships with the base distribution - required
 # again explicitly so it keeps working the same way even if that ever changes.
@@ -1189,9 +1330,7 @@ CLEANUP_HINT="${INVOCATION} --c ${SUFFIX:-$PROJECT_NAME}"
 # Without --path, --cleanup only scans the current directory - which is no longer
 # necessarily the one the instance was created in now that this runs from anywhere.
 [[ "$BASE_PATH" != "." ]] && CLEANUP_HINT="${CLEANUP_HINT} --path=${BASE_PATH}"
+echo "For ports, database and Mailpit details: 'ddev describe' inside ${PROJECT_DIR}"
 echo "To clean up this instance: ${CLEANUP_HINT}"
-
-echo
-ddev describe
 
 ddev launch /typo3 >/dev/null 2>&1 || echo "Note: could not auto-open the browser, open the backend URL above manually."

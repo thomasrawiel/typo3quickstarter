@@ -27,7 +27,44 @@ Currently supported major versions:
 
 Only one release line is wired up per major version — extending the version map to a new TYPO3 release is a one-line addition in the script.
 
-> Project folder/DDEV names are always based on the major version (e.g. `typo3-v12-a1b2`), even if you pinned an exact patch release with `--release=12.4.20`.
+> Project folder/DDEV names are always based on the major version (e.g. `typo3-v12-101`), even if you pinned an exact patch release with `--release=12.4.20`.
+
+## Pre-releases (TYPO3 15)
+
+| `--release` | PHP | Composer constraint |
+|---|---|---|
+| 15 | 8.5 | `dev-main` |
+
+TYPO3 15 has no release yet. It's developed on `main`, and neither `typo3/cms-core` nor `typo3/cms-base-distribution` publish a `15.x` branch on Packagist — `dev-main` (branch alias `15.0.x-dev`) is the only thing that resolves. `--release=15` installs exactly that:
+
+```bash
+./typo3-ddev-setup.sh --release=15
+```
+
+```
+==> TYPO3 15 has no release yet - installing the development branch (dev-main).
+    Expect breakage, and expect two installs made on different days to differ.
+```
+
+Three things follow from it being a development branch:
+
+- **It's never the default.** Leaving out `--release` still gives you the highest *released* version. You have to ask for 15 by name.
+- **It can't be pinned.** `--release=15.0` or `--release=15.0.1` is rejected up front, because there is no such release to pin to — better than failing minutes later inside Composer.
+- **It needs PHP 8.5**, which the script sets for you like every other version. Your DDEV has to know that PHP version; if it's too old, `ddev config` says so and updating DDEV fixes it.
+
+The script fixes up two things in the scaffolded `composer.json` before installing:
+
+- **`minimum-stability: dev` plus `prefer-stable: true`.** The base distribution's `main` branch requires every `typo3/cms-*` at `dev-main` but sets no `minimum-stability` of its own, so anything added afterwards — the core extras the script requires, and your own `--require` packages — would be judged against the default `stable` and refused. `prefer-stable` keeps unrelated third-party packages on their stable releases regardless.
+- **`config.platform.php` is removed.** That branch still pins it to `8.2.0`, left over from the 14 line, while the `cms-core` it pulls in already requires `^8.5`. The override wins over the PHP that's actually installed, so Composer ends up rejecting its own packages:
+
+  ```
+  typo3/cms-core[dev-main, 15.0.x-dev] require php ^8.5 -> your php version
+  (8.2.0; overridden via config.platform, actual: 8.5.7) does not satisfy that requirement.
+  ```
+
+  Dropping it lets Composer see the container's real PHP — which is the version this script picked for the release anyway.
+
+Once 15.0 is actually released, it moves from the pre-release list into the table above and gets a normal `^15.0` constraint.
 
 ## Pinning an exact patch release
 

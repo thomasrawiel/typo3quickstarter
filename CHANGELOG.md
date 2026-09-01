@@ -5,6 +5,21 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this p
 
 ## [Unreleased]
 
+### Added
+
+- Every normal run now checks whether a newer release exists and prints a green one-line notice under the banner if it does, so an outdated copy no longer stays outdated just because nobody thought to run `typo3quickstarter update`. It only ever informs - nothing is asked and nothing is installed - and it stays silent when offline, without `curl`, or inside a git checkout, where `git pull` is the right tool. The check gives up after 3 seconds so it can't hold up a setup, and `TYPO3QUICKSTARTER_NO_UPDATE_CHECK=1` disables it entirely - see [docs/installation.md](docs/installation.md).
+- `--require-dev=PKG` installs extra Composer packages as development dependencies, for everything that belongs in a test instance but not in a real project's `require` - Rector, Fractor, PHPStan and friends. Same repeat/space-separated syntax as `--require`, and it runs after the base install like that one does - see [docs/composer-packages.md](docs/composer-packages.md). Thanks to [@thomasrawiel](https://github.com/thomasrawiel) ([#18](https://github.com/pagea-dev/typo3quickstarter/pull/18)).
+- `--release=15` installs the unreleased TYPO3 15 development branch, for trying out what's coming before there is anything to download. TYPO3 15 lives on `main` and has no `15.x` branch on Packagist, so it is installed from `dev-main` (branch alias `15.0.x-dev`) on PHP 8.5, with `minimum-stability: dev` and `prefer-stable: true` set on the project so the core extras and your own `--require` packages still resolve. It is never the default - leaving out `--release` keeps giving you the highest released version - and it cannot be pinned to a patch release, which is rejected up front rather than several minutes into Composer. The stale `config.platform.php` the base distribution still carries from the 14 line is dropped as well, since it made Composer judge TYPO3 15 against PHP 8.2 and reject its own packages - see [docs/versions.md](docs/versions.md) ([#19](https://github.com/pagea-dev/typo3quickstarter/issues/19)).
+
+### Fixed
+
+- `typo3quickstarter uninstall` on a copy with no uninstaller next to it told you to delete the script and nothing else, quietly leaving the `t3quickstarter` alias behind as a symlink pointing at a file that no longer exists. It now lists every symlink in that directory pointing back at the running copy, so the printed commands actually remove all of it.
+
+### Changed
+
+- Auto-generated instance names now end in three digits (`typo3-v14-101`) instead of four hex characters (`typo3-v14-a1b2`), so the suffix the cleanup hint prints can be read off and typed back without picking letters out of a blob. The digits are checked before they're used - against the target directory and against DDEV, whose project names are global - so a name is never reused by an instance sitting in some other directory.
+- The final summary no longer runs `ddev describe`. Its full-width table pushed the backend URL and the admin password off the screen, so the one thing you actually need right then had to be scrolled back to. The summary now points at `ddev describe` for ports, database and Mailpit details instead of printing them unasked.
+
 ## [0.5.0] - 2026-08-30
 
 ### Added
