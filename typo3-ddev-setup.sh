@@ -71,7 +71,7 @@ Options:
   --admin-email=MAIL      Backend admin email (default: admin@<project>.ddev.site)
   --require=PKG           Install an extra Composer package after setup. Repeat the flag or
                           list several packages after one occurrence, space-separated.
-  -require-dev=PKG        Install an extra Composer package wih the --dev option after setup. Repeat the flag or
+  --require-dev=PKG        Install an extra Composer package with the --dev option after setup. Repeat the flag or
                           list several packages after one occurrence, space-separated.
   --extension=PATH        Mount a local extension directory and require it at :@dev for
                           development (see docs/composer-packages.md). Same multi-value syntax
