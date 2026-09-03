@@ -1099,7 +1099,7 @@ if [[ ${#COMPOSER_DEV_REQUIREMENTS[@]} -gt 0 ]]; then
 fi
 
 # --- TYPO3 setup (database + admin user + site) -------------------------------
-if [[ "$T3_MAJOR" -eq 11 ]]; then
+if [[ "$T3_MAJOR" -le 11 ]]; then
   # TYPO3 v11's native `typo3 setup` command crashes on fresh CLI installs
   # (GeneralUtility::$container is null when DataHandler touches the reference
   # index while creating the admin user - see https://forge.typo3.org/issues/105452).
@@ -1161,6 +1161,9 @@ if [[ -f "$SETTINGS_FILE" ]]; then
         'trustedHostsPattern' => '.*',"
   SETTINGS_PHP="${SETTINGS_PHP/$SEARCH/$REPLACE}"
   printf '%s\n' "$SETTINGS_PHP" > "$SETTINGS_FILE"
+fi
+if [[ "$T3_MAJOR" -le 11 ]]; then
+  ddev exec bash -c 'vendor/bin/typo3cms configuration:set SYS/trustedHostsPattern ".*"'
 fi
 
 # --- Debug settings ---------------------------------------------------------
